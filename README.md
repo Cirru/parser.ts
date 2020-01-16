@@ -1,28 +1,10 @@
-## Workflow
+## Cirru Parser in TypeScript
 
-> A project template based on TypeScript, React, immer, emotion, rex, ruled-router...
+> based on latest parser of ClojureScript version.
 
 ### Usage
 
-Dev:
-
-```bash
-yarn dll
-yarn dev
-```
-
-Compile library:
-
-```bash
-yarn compile
-```
-
-Release:
-
-```bash
-yarn release
-# yarn serve
-```
+_TODO_
 
 ### Workflow
 

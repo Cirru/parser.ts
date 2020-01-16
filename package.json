@@ -24,7 +24,6 @@
     "@jimengio/doc-frame": "^0.1.10",
     "@jimengio/flex-styles": "^0.1.6",
     "@jimengio/router-code-generator": "^0.2.5",
-    "@jimengio/shared-utils": "^0.1.5",
     "@types/node": "^13.1.6",
     "@types/prettier": "^1.19.0",
     "@types/query-string": "^6.3.0",
