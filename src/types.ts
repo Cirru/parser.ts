@@ -7,3 +7,8 @@ export enum ELexState {
   indent,
   string,
 }
+
+export enum ELexControl {
+  open = -1000,
+  close = -2000,
+}
