@@ -14,7 +14,7 @@
     "test": "yarn jest",
     "compile": "rm -rfv lib/* && tsc -d --project tsconfig-compile.json --outDir lib/",
     "prepare": "yarn test && yarn compile",
-    "upload": "rsync -avr --progress dist/ fe.jimu.io:~/repo/jimengio/ts-workflow",
+    "upload": "rsync -avr --progress dist/ cirru.org:~/repo/Cirru/parser.ts",
     "gen-router": "ts-node -P tsconfig-node.json -r tsconfig-paths/register example/gen-router.ts",
     "postinstall": "rm -rfv node_modules/@types/*/node_modules/@types/react"
   },

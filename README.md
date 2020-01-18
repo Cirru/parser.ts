@@ -2,6 +2,8 @@
 
 > based on latest parser of ClojureScript version.
 
+Demo http://repo.cirru.org/parser.ts/
+
 ### Usage
 
 ![](https://img.shields.io/npm/v/@cirru/parser.ts.svg)

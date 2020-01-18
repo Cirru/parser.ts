@@ -15,7 +15,7 @@ let Container: FC<{ router: GenRouterTypeMain }> = React.memo((props) => {
   return (
     <div className={cx(fullscreen, column, styleContainer)}>
       <div className={cx(rowParted, styleHeader)}>
-        <span />
+        <span>Cirru Parser in TypeScript</span>
         <button
           onClick={() => {
             console.log("parse");
@@ -32,10 +32,9 @@ let Container: FC<{ router: GenRouterTypeMain }> = React.memo((props) => {
             let c = event.target.value;
             setCode(c);
             try {
-              // setResult(JSON.stringify(parse(c), null, 2));
-
               let started = Date.now();
-              let data = parse(c);
+              setResult(JSON.stringify(parse(c), null, 2));
+              // let data = parse(c);
               console.warn("finished", Date.now() - started);
             } catch (error) {
               console.dir(error);
