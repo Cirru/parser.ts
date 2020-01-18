@@ -12,3 +12,6 @@ export enum ELexControl {
   open = -1000,
   close = -2000,
 }
+
+export type LexList = (string | ELexControl | number)[];
+export type LexListItem = string | ELexControl | number;

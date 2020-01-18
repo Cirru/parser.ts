@@ -4,7 +4,17 @@
 
 ### Usage
 
-_TODO_
+![](https://img.shields.io/npm/v/@cirru/parser.ts.svg)
+
+```bash
+yarn add @cirru/parser.ts
+```
+
+```ts
+import { parse } from "@cirru/parser.ts";
+
+parse("a (demo)");
+```
 
 ### Workflow
 
