@@ -18,6 +18,24 @@ export let addToList = <T>(acc: T[], xs: T[], ys?: T[], zs?: T[]) => {
   return result;
 };
 
+export let pushToList = <T>(acc: T[], xs: T[], ys?: T[], zs?: T[]) => {
+  let result = acc;
+  xs.forEach((x) => {
+    result.push(x);
+  });
+  if (ys != null) {
+    ys.forEach((y) => {
+      result.push(y);
+    });
+  }
+  if (zs != null) {
+    zs.forEach((y) => {
+      result.push(y);
+    });
+  }
+  return result;
+};
+
 export let isArray = Array.isArray;
 export let isEmpty = (xs: any[] | string) => xs.length === 0;
 export let notEmpty = (xs: any[]) => xs.length > 0;

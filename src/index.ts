@@ -1,5 +1,5 @@
 import { ICirruNode, ELexState, ELexControl, LexList, LexListItem } from "./types";
-import { conj, addToList, resolveComma, resolveDollar, isEmpty, isString, isNumber, isOdd, isArray } from "./tree";
+import { conj, pushToList, addToList, resolveComma, resolveDollar, isEmpty, isString, isNumber, isOdd, isArray } from "./tree";
 
 type FuncTokenGet = () => string | ELexControl;
 
@@ -209,35 +209,45 @@ let resolveIndentations = (initialTokens: LexList) => {
   let acc: LexList = [];
   let level = 0;
   let tokens: LexList = initialTokens;
+  let pointer = 0;
   while (true) {
-    if (isEmpty(tokens)) {
+    if (pointer >= tokens.length) {
       if (isEmpty(acc)) {
         return [];
       } else {
-        return addToList([ELexControl.open] as LexList, acc, repeat(level, ELexControl.close), [ELexControl.close]);
+        acc.unshift(ELexControl.open);
+        pushToList(acc, repeat(level, ELexControl.close), [ELexControl.close]);
+        return acc;
       }
     } else {
-      let cursor = tokens[0];
+      let cursor = tokens[pointer];
       if (typeof cursor === "string") {
         acc.push(cursor);
-        [level, tokens] = [level, tokens.slice(1)];
+        pointer += 1;
+        [level] = [level];
       } else if (cursor === ELexControl.open || cursor === ELexControl.close) {
         acc.push(cursor);
-        [level, tokens] = [level, tokens.slice(1)];
+        pointer += 1;
+        [level] = [level];
       } else if (typeof cursor === "number") {
         if (cursor > level) {
           let delta = cursor - level;
-          [acc, level, tokens] = [addToList(acc, repeat(delta, ELexControl.open)), cursor, tokens.slice(1)];
+          pushToList(acc, repeat(delta, ELexControl.open));
+          pointer += 1;
+          [level] = [cursor];
         } else if (cursor < level) {
           let delta = level - cursor;
-          [acc, level, tokens] = [addToList(acc, repeat(delta, ELexControl.close), [ELexControl.close, ELexControl.open]), cursor, tokens.slice(1)];
+          pushToList(acc, repeat(delta, ELexControl.close), [ELexControl.close, ELexControl.open]);
+          pointer += 1;
+          [level] = [cursor];
         } else {
           if (isEmpty(acc)) {
             acc = [];
           } else {
             acc.push(ELexControl.close, ELexControl.open);
           }
-          [level, tokens] = [level, tokens.slice(1)];
+          pointer += 1;
+          [level] = [level];
         }
       } else {
         console.log(cursor);
