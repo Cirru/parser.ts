@@ -9,3 +9,4 @@ template.ejs
 tsconfig.json
 webpack
 yarn.lock
+test/

@@ -1,143 +1,286 @@
-import { ICirruNode, ELexState, ELexControl } from "./types";
+import { ICirruNode, ELexState, ELexControl, LexList, LexListItem } from "./types";
+import { pushToList, resolveComma, resolveDollar, isEmpty, isString, isNumber, isOdd, isArray } from "./tree";
 
 type FuncTokenGet = () => string | ELexControl;
 
-let graspeExprs = (acc: ICirruNode[], pullToken: FuncTokenGet) => {
-  let cursor = pullToken();
-  switch (cursor) {
-    case ELexControl.close:
-      return acc;
-    case ELexControl.open:
-      let current = graspeExprs([], pullToken);
-      return graspeExprs(acc.concat([current]), pullToken);
-    default:
-      console.log(cursor);
-      throw new Error("Unknown cursor");
+let graspeExprs = (pullToken: FuncTokenGet) => {
+  let acc: ICirruNode[] = [];
+  let pointer = acc;
+  let pointerStack = [];
+  while (true) {
+    let cursor = pullToken();
+    // console.log(pointerStack, pointer, cursor);
+    switch (cursor) {
+      case ELexControl.close:
+        if (pointerStack.length === 0) {
+          return pointer;
+        }
+        let collected = pointer;
+        pointer = pointerStack.pop();
+        pointer.push(collected);
+        break;
+      case ELexControl.open:
+        pointerStack.push(pointer);
+        pointer = [];
+        break;
+      case ELexControl.close:
+        throw new Error("Unexpected close token");
+      default:
+        if (isString(cursor)) {
+          pointer.push(cursor);
+          break;
+        } else {
+          console.log(JSON.stringify(cursor));
+          throw new Error("Unknown cursor");
+        }
+    }
   }
 };
 
-let buildExprs = (pullToken: FuncTokenGet, peekToken: FuncTokenGet, putBack: (x: string) => void) => {
+let buildExprs = (pullToken: FuncTokenGet) => {
   let acc = [];
   while (true) {
     let chunk = pullToken();
-    if (chunk === "open") {
-      let expr = graspeExprs([], pullToken);
+    if (chunk === ELexControl.open) {
+      let expr = graspeExprs(pullToken);
       acc.push(expr);
       continue;
     } else if (chunk == null) {
       return acc;
     } else {
       console.log(chunk);
-      throw new Error("Unknown chunbk");
+      throw new Error("Unknown chunk");
     }
   }
 };
 
 let parseIndentation = (buffer: string) => {
   let size = buffer.length;
-  if (size % 2 === 1) {
+  if (isOdd(size)) {
     throw new Error(`Invalid indentation size ${size}`);
   }
   return size / 2;
 };
 
-let lex = (acc: (string | ELexControl)[], state: ELexState, buffer: string, code: string) => {
-  if (code.length === 0) {
-    switch (state) {
-      case ELexState.space:
-        return acc;
-      case ELexState.token:
-        return acc.concat(buffer);
-      case ELexState.escape:
-        throw new Error("Should not be escape");
-      case ELexState.indent:
-        return acc;
-      case ELexState.string:
-        throw new Error("Should not be string");
-      default:
-        console.log(state);
-        throw new Error("Unkown state");
+let lex = (initialCode: string) => {
+  let acc: LexList = [];
+  let state = ELexState.indent as ELexState;
+  let buffer = "";
+  let code = initialCode;
+  // let count = 0;
+
+  let pointer = 0;
+
+  while (true) {
+    // count += 1;
+    // if (count > 1000) {
+    //   break;
+    // }
+    if (pointer >= code.length) {
+      switch (state) {
+        case ELexState.space:
+          return acc;
+        case ELexState.token:
+          acc.push(buffer);
+          return acc;
+          break;
+        case ELexState.escape:
+          throw new Error("Should not be escape");
+        case ELexState.indent:
+          return acc;
+        case ELexState.string:
+          throw new Error("Should not be string");
+        default:
+          console.log(state);
+          throw new Error("Unkown state");
+      }
+    } else {
+      let c = code[pointer];
+      pointer += 1;
+      switch (state) {
+        case ELexState.space:
+          switch (c) {
+            case " ":
+              [acc, state, buffer] = [acc, ELexState.space, ""];
+              break;
+            case "\n":
+              [acc, state, buffer] = [acc, ELexState.indent, ""];
+              break;
+            case "(":
+              acc.push(ELexControl.open);
+              [state, buffer] = [ELexState.space, ""];
+              break;
+            case ")":
+              acc.push(ELexControl.close);
+              [state, buffer] = [ELexState.space, ""];
+              break;
+            case '"':
+              [acc, state, buffer] = [acc, ELexState.string, ""];
+              break;
+            default:
+              [acc, state, buffer] = [acc, ELexState.token, c];
+              break;
+          }
+          break;
+        case ELexState.token:
+          switch (c) {
+            case " ":
+              acc.push(buffer);
+              [state, buffer] = [ELexState.space, ""];
+              break;
+            case '"':
+              acc.push(buffer);
+              [state, buffer] = [ELexState.string, ""];
+              break;
+            case "\n":
+              acc.push(buffer);
+              [state, buffer] = [ELexState.indent, ""];
+              break;
+            case "(":
+              acc.push(buffer, ELexControl.open);
+              [state, buffer] = [ELexState.space, ""];
+              break;
+            case ")":
+              acc.push(buffer, ELexControl.close);
+              [state, buffer] = [ELexState.space, ""];
+              break;
+            default:
+              [acc, state, buffer] = [acc, ELexState.token, `${buffer}${c}`];
+              break;
+          }
+          break;
+        case ELexState.string:
+          switch (c) {
+            case '"':
+              acc.push(buffer);
+              [state, buffer] = [ELexState.space, ""];
+              break;
+            case "\\":
+              [acc, state, buffer] = [acc, ELexState.escape, buffer];
+              break;
+            case "\n":
+              throw new Error("Expected newline in string");
+            default:
+              [acc, state, buffer] = [acc, ELexState.string, `${buffer}${c}`];
+              break;
+          }
+          break;
+        case ELexState.escape:
+          switch (c) {
+            case '"':
+              [acc, state, buffer] = [acc, ELexState.string, `${buffer}"`];
+              break;
+            case "t":
+              [acc, state, buffer] = [acc, ELexState.string, `${buffer}\t`];
+              break;
+            case "n":
+              [acc, state, buffer] = [acc, ELexState.string, `${buffer}\n`];
+              break;
+            case "\\":
+              [acc, state, buffer] = [acc, ELexState.string, `${buffer}\\`];
+              break;
+            default:
+              throw new Error(`Unknown ${c} in escape`);
+          }
+          break;
+        case ELexState.indent:
+          switch (c) {
+            case " ":
+              [acc, state, buffer] = [acc, ELexState.indent, `${buffer}${c}`];
+              break;
+            case "\n":
+              [acc, state, buffer] = [acc, ELexState.indent, ""];
+              break;
+            case '"':
+              acc.push(parseIndentation(buffer));
+              [state, buffer] = [ELexState.string, ""];
+              break;
+            case "(":
+              acc.push(parseIndentation(buffer), ELexControl.open);
+              [state, buffer] = [ELexState.space, ""];
+              break;
+            default:
+              acc.push(parseIndentation(buffer));
+              [state, buffer] = [ELexState.token, c];
+              break;
+          }
+          break;
+        default:
+          console.log("Unknown", c);
+          return acc;
+      }
     }
-  } else {
-    let c = code[0];
-    let body = c.slice(1);
-    switch (state) {
-      case ELexState.space:
-        switch (c) {
-          case " ":
-            return lex(acc, ELexState.space, "", body);
-          case "\n":
-            return lex(acc, ELexState.indent, "", body);
-          case "(":
-            return lex(acc.concat("open"), ELexState.space, "", body);
-          case ")":
-            return lex(acc.concat("close"), ELexState.space, "", body);
-          case '"':
-            return lex(acc, ELexState.string, "", body);
-          default:
-            return lex(acc, ELexState.token, "", body);
-        }
-      case ELexState.token:
-        switch (c) {
-          case " ":
-            return lex(acc.concat(buffer), ELexState.space, "", body);
-          case '"':
-            return lex(acc.concat(buffer), ELexState.string, "", body);
-          case "\n":
-            return lex(acc.concat(buffer), ELexState.indent, "", body);
-          case "(":
-            return lex(acc.concat(ELexControl.open), ELexState.space, "", body);
-          case ")":
-            return lex(acc.concat(ELexControl.close), ELexState.space, "", body);
-          default:
-            return lex(acc, ELexState.token, `${buffer}${c}`, body);
-        }
-      case ELexState.string:
-        switch (c) {
-          case '"':
-            return lex(acc.concat(buffer), ELexState.space, "", body);
-          case "\\":
-            return lex(acc, ELexState.escape, buffer, body);
-          case "\n":
-            throw new Error("Expected newline in string");
-          default:
-            return lex(acc, ELexState.string, `${buffer}${c}`, body);
-        }
-      case ELexState.escape:
-        switch (c) {
-          case '"':
-            return lex(acc, ELexState.string, `${buffer}"`, body);
-          case "t":
-            return lex(acc, ELexState.string, `${buffer}\t`, body);
-          case "n":
-            return lex(acc, ELexState.string, `${buffer}\n`, body);
-          case "\\":
-            return lex(acc, ELexState.string, `${buffer}\\`, body);
-          default:
-            throw new Error(`Unknown ${c} in escape`);
-        }
-      case ELexState.indent:
-        switch (c) {
-          case " ":
-            return lex(acc, ELexState.indent, `${buffer}${c}`, body);
-          case "\n":
-            return lex(acc, ELexState.indent, "", body);
-          case '"':
-            return lex(acc.concat(parseIndentation(buffer)), ELexState.string, "", body);
-          case "(":
-            return lex(acc.concat(parseIndentation(buffer)), ELexState.token, "", body);
-          default:
-            return lex(acc.concat(parseIndentation(buffer)), ELexState.token, c, body);
-        }
-      default:
-        console.log("Unknown", c);
+  }
+  return acc;
+};
+
+let repeat = <T>(times: number, x: T) => {
+  let xs: T[] = [];
+  for (let i = 1; i <= times; i++) {
+    xs.push(x);
+  }
+  return xs;
+};
+
+let resolveIndentations = (initialTokens: LexList) => {
+  let acc: LexList = [];
+  let level = 0;
+  let tokens: LexList = initialTokens;
+  let pointer = 0;
+  while (true) {
+    if (pointer >= tokens.length) {
+      if (isEmpty(acc)) {
+        return [];
+      } else {
+        acc.unshift(ELexControl.open);
+        pushToList(acc, repeat(level, ELexControl.close), [ELexControl.close]);
         return acc;
+      }
+    } else {
+      let cursor = tokens[pointer];
+      if (typeof cursor === "string") {
+        acc.push(cursor);
+        pointer += 1;
+        [level] = [level];
+      } else if (cursor === ELexControl.open || cursor === ELexControl.close) {
+        acc.push(cursor);
+        pointer += 1;
+        [level] = [level];
+      } else if (typeof cursor === "number") {
+        if (cursor > level) {
+          let delta = cursor - level;
+          pushToList(acc, repeat(delta, ELexControl.open));
+          pointer += 1;
+          [level] = [cursor];
+        } else if (cursor < level) {
+          let delta = level - cursor;
+          pushToList(acc, repeat(delta, ELexControl.close), [ELexControl.close, ELexControl.open]);
+          pointer += 1;
+          [level] = [cursor];
+        } else {
+          if (isEmpty(acc)) {
+            acc = [];
+          } else {
+            acc.push(ELexControl.close, ELexControl.open);
+          }
+          pointer += 1;
+          [level] = [level];
+        }
+      } else {
+        console.log(cursor);
+        throw new Error("Unknown token");
+      }
     }
   }
 };
 
-let resolveIndentations = (acc: ICirruNode[], level: number, tokens: string[]) => {};
-
 export let parse = (code: string) => {
-  // TODO
+  let tokens = resolveIndentations(lex(code));
+  let pointer = 0;
+  let pullToken = () => {
+    let c = tokens[pointer];
+    pointer += 1;
+    return c;
+  };
+  return resolveComma(resolveDollar(buildExprs(pullToken)));
 };

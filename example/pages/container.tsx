@@ -1,54 +1,49 @@
-import React, { FC } from "react";
+import React, { FC, useState } from "react";
 import { css, cx } from "emotion";
-import { fullscreen, row, expand } from "@jimengio/flex-styles";
+import { fullscreen, row, expand, column, rowParted } from "@jimengio/flex-styles";
 
-import Home from "./home";
-import Content from "./content";
-import { HashRedirect, findRouteTarget } from "@jimengio/ruled-router/lib/dom";
 import { genRouter, GenRouterTypeMain } from "controller/generated-router";
-import { ISidebarEntry, DocSidebar } from "@jimengio/doc-frame";
-
-let items: ISidebarEntry[] = [];
-
-const renderChildPage = (routerTree: GenRouterTypeMain) => {
-  switch (routerTree?.name) {
-    case "home":
-      return <Home />;
-    case "content":
-      return <Content />;
-    default:
-      return (
-        <HashRedirect to={genRouter.home.name} delay={2}>
-          2s to redirect
-        </HashRedirect>
-      );
-  }
-
-  return <div>NOTHING</div>;
-};
-
-let onSwitchPage = (path: string) => {
-  let target = findRouteTarget(genRouter, path);
-  if (target != null) {
-    target.go();
-  }
-};
+import { parse } from "../../src/index";
 
 let Container: FC<{ router: GenRouterTypeMain }> = React.memo((props) => {
+  let [code, setCode] = useState("");
+  let [result, setResult] = useState(null);
+
   /** Methods */
   /** Effects */
   /** Renderers */
   return (
-    <div className={cx(fullscreen, row, styleContainer)}>
-      <DocSidebar
-        title="Cirru Parser"
-        currentPath={props.router.name}
-        onSwitch={(item) => {
-          onSwitchPage(item.path);
-        }}
-        items={items}
-      />
-      <div className={cx(expand, styleBody)}>{renderChildPage(props.router)}</div>
+    <div className={cx(fullscreen, column, styleContainer)}>
+      <div className={cx(rowParted, styleHeader)}>
+        <span>Cirru Parser in TypeScript</span>
+        <button
+          onClick={() => {
+            console.log("parse");
+          }}
+        >
+          Parse
+        </button>
+      </div>
+      <div className={cx(expand, row)}>
+        <textarea
+          className={cx(expand, styleCode)}
+          value={code}
+          onChange={(event) => {
+            let c = event.target.value;
+            setCode(c);
+            try {
+              let started = Date.now();
+              setResult(JSON.stringify(parse(c), null, 2));
+              // let data = parse(c);
+              console.warn("finished", Date.now() - started);
+            } catch (error) {
+              console.dir(error);
+              setResult(error.stack);
+            }
+          }}
+        />
+        <textarea className={cx(expand, styleCode)} value={result} />
+      </div>
     </div>
   );
 });
@@ -57,6 +52,12 @@ export default Container;
 
 const styleContainer = css``;
 
-let styleBody = css`
-  padding: 16px;
+let styleHeader = css`
+  padding: 8px;
+`;
+
+let styleCode = css`
+  padding: 8px;
+  font-family: Source Code Pro, Menlo, monospace;
+  white-space: pre;
 `;
