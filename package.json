@@ -1,8 +1,8 @@
 {
   "name": "@cirru/parser.ts",
-  "version": "0.0.1-a2",
+  "version": "0.0.1-a3",
   "description": "Cirru Parser in TypeScript",
-  "main": "index.js",
+  "main": "lib/index.js",
   "scripts": {
     "dev": "webpack-dev-server --hot --config webpack/dev.js",
     "watch": "webpack-dev-server --hot --config webpack/dev.js",
