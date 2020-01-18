@@ -48,99 +48,142 @@ let parseIndentation = (buffer: string) => {
   return size / 2;
 };
 
-let lex = (acc: LexList, state: ELexState, buffer: string, code: string) => {
-  if (isEmpty(code)) {
-    switch (state) {
-      case ELexState.space:
-        return acc;
-      case ELexState.token:
-        return conj(acc, buffer);
-      case ELexState.escape:
-        throw new Error("Should not be escape");
-      case ELexState.indent:
-        return acc;
-      case ELexState.string:
-        throw new Error("Should not be string");
-      default:
-        console.log(state);
-        throw new Error("Unkown state");
-    }
-  } else {
-    let c = code[0];
-    let body = code.slice(1);
-    switch (state) {
-      case ELexState.space:
-        switch (c) {
-          case " ":
-            return lex(acc, ELexState.space, "", body);
-          case "\n":
-            return lex(acc, ELexState.indent, "", body);
-          case "(":
-            return lex(conj(acc, ELexControl.open), ELexState.space, "", body);
-          case ")":
-            return lex(conj(acc, ELexControl.close), ELexState.space, "", body);
-          case '"':
-            return lex(acc, ELexState.string, "", body);
-          default:
-            return lex(acc, ELexState.token, c, body);
-        }
-      case ELexState.token:
-        switch (c) {
-          case " ":
-            return lex(conj(acc, buffer), ELexState.space, "", body);
-          case '"':
-            return lex(conj(acc, buffer), ELexState.string, "", body);
-          case "\n":
-            return lex(conj(acc, buffer), ELexState.indent, "", body);
-          case "(":
-            return lex(conj(acc, buffer, ELexControl.open), ELexState.space, "", body);
-          case ")":
-            return lex(conj(acc, buffer, ELexControl.close), ELexState.space, "", body);
-          default:
-            return lex(acc, ELexState.token, `${buffer}${c}`, body);
-        }
-      case ELexState.string:
-        switch (c) {
-          case '"':
-            return lex(conj(acc, buffer), ELexState.space, "", body);
-          case "\\":
-            return lex(acc, ELexState.escape, buffer, body);
-          case "\n":
-            throw new Error("Expected newline in string");
-          default:
-            return lex(acc, ELexState.string, `${buffer}${c}`, body);
-        }
-      case ELexState.escape:
-        switch (c) {
-          case '"':
-            return lex(acc, ELexState.string, `${buffer}"`, body);
-          case "t":
-            return lex(acc, ELexState.string, `${buffer}\t`, body);
-          case "n":
-            return lex(acc, ELexState.string, `${buffer}\n`, body);
-          case "\\":
-            return lex(acc, ELexState.string, `${buffer}\\`, body);
-          default:
-            throw new Error(`Unknown ${c} in escape`);
-        }
-      case ELexState.indent:
-        switch (c) {
-          case " ":
-            return lex(acc, ELexState.indent, `${buffer}${c}`, body);
-          case "\n":
-            return lex(acc, ELexState.indent, "", body);
-          case '"':
-            return lex(conj(acc, parseIndentation(buffer)), ELexState.string, "", body);
-          case "(":
-            return lex(conj(acc, parseIndentation(buffer), ELexControl.open), ELexState.space, "", body);
-          default:
-            return lex(conj(acc, parseIndentation(buffer)), ELexState.token, c, body);
-        }
-      default:
-        console.log("Unknown", c);
-        return acc;
+let lex = (initialCode: string) => {
+  let acc: LexList = [];
+  let state = ELexState.indent as ELexState;
+  let buffer = "";
+  let code = initialCode;
+  // let count = 0;
+  while (true) {
+    // count += 1;
+    // if (count > 1000) {
+    //   break;
+    // }
+    if (isEmpty(code)) {
+      switch (state) {
+        case ELexState.space:
+          return acc;
+        case ELexState.token:
+          acc.push(buffer);
+          return acc;
+          break;
+        case ELexState.escape:
+          throw new Error("Should not be escape");
+        case ELexState.indent:
+          return acc;
+        case ELexState.string:
+          throw new Error("Should not be string");
+        default:
+          console.log(state);
+          throw new Error("Unkown state");
+      }
+    } else {
+      let c = code[0];
+      let body = code.slice(1);
+      switch (state) {
+        case ELexState.space:
+          switch (c) {
+            case " ":
+              [acc, state, buffer, code] = [acc, ELexState.space, "", body];
+              break;
+            case "\n":
+              [acc, state, buffer, code] = [acc, ELexState.indent, "", body];
+              break;
+            case "(":
+              [acc, state, buffer, code] = [conj(acc, ELexControl.open), ELexState.space, "", body];
+              break;
+            case ")":
+              [acc, state, buffer, code] = [conj(acc, ELexControl.close), ELexState.space, "", body];
+              break;
+            case '"':
+              [acc, state, buffer, code] = [acc, ELexState.string, "", body];
+              break;
+            default:
+              [acc, state, buffer, code] = [acc, ELexState.token, c, body];
+              break;
+          }
+          break;
+        case ELexState.token:
+          switch (c) {
+            case " ":
+              [acc, state, buffer, code] = [conj(acc, buffer), ELexState.space, "", body];
+              break;
+            case '"':
+              [acc, state, buffer, code] = [conj(acc, buffer), ELexState.string, "", body];
+              break;
+            case "\n":
+              [acc, state, buffer, code] = [conj(acc, buffer), ELexState.indent, "", body];
+              break;
+            case "(":
+              [acc, state, buffer, code] = [conj(acc, buffer, ELexControl.open), ELexState.space, "", body];
+              break;
+            case ")":
+              [acc, state, buffer, code] = [conj(acc, buffer, ELexControl.close), ELexState.space, "", body];
+              break;
+            default:
+              [acc, state, buffer, code] = [acc, ELexState.token, `${buffer}${c}`, body];
+              break;
+          }
+          break;
+        case ELexState.string:
+          switch (c) {
+            case '"':
+              [acc, state, buffer, code] = [conj(acc, buffer), ELexState.space, "", body];
+              break;
+            case "\\":
+              [acc, state, buffer, code] = [acc, ELexState.escape, buffer, body];
+              break;
+            case "\n":
+              throw new Error("Expected newline in string");
+            default:
+              [acc, state, buffer, code] = [acc, ELexState.string, `${buffer}${c}`, body];
+              break;
+          }
+          break;
+        case ELexState.escape:
+          switch (c) {
+            case '"':
+              [acc, state, buffer, code] = [acc, ELexState.string, `${buffer}"`, body];
+              break;
+            case "t":
+              [acc, state, buffer, code] = [acc, ELexState.string, `${buffer}\t`, body];
+              break;
+            case "n":
+              [acc, state, buffer, code] = [acc, ELexState.string, `${buffer}\n`, body];
+              break;
+            case "\\":
+              [acc, state, buffer, code] = [acc, ELexState.string, `${buffer}\\`, body];
+              break;
+            default:
+              throw new Error(`Unknown ${c} in escape`);
+          }
+          break;
+        case ELexState.indent:
+          switch (c) {
+            case " ":
+              [acc, state, buffer, code] = [acc, ELexState.indent, `${buffer}${c}`, body];
+              break;
+            case "\n":
+              [acc, state, buffer, code] = [acc, ELexState.indent, "", body];
+              break;
+            case '"':
+              [acc, state, buffer, code] = [conj(acc, parseIndentation(buffer)), ELexState.string, "", body];
+              break;
+            case "(":
+              [acc, state, buffer, code] = [conj(acc, parseIndentation(buffer), ELexControl.open), ELexState.space, "", body];
+              break;
+            default:
+              [acc, state, buffer, code] = [conj(acc, parseIndentation(buffer)), ELexState.token, c, body];
+              break;
+          }
+          break;
+        default:
+          console.log("Unknown", c);
+          return acc;
+      }
     }
   }
+  return acc;
 };
 
 let repeat = <T>(times: number, x: T) => {
@@ -151,7 +194,7 @@ let repeat = <T>(times: number, x: T) => {
   return xs;
 };
 
-let resolveIndentations = (acc: LexList, level: number, tokens: string[]) => {
+let resolveIndentations = (acc: LexList, level: number, tokens: LexList) => {
   if (isEmpty(tokens)) {
     if (isEmpty(acc)) {
       return [];
@@ -182,7 +225,7 @@ let resolveIndentations = (acc: LexList, level: number, tokens: string[]) => {
 };
 
 export let parse = (code: string) => {
-  let tokens = resolveIndentations([], 0, lex([], ELexState.indent, "", code));
+  let tokens = resolveIndentations([], 0, lex(code));
   let refTokens = tokens.slice();
   let pullToken = () => {
     if (isEmpty(refTokens)) {
