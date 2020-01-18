@@ -1,25 +1,39 @@
 import { ICirruNode, ELexState, ELexControl, LexList, LexListItem } from "./types";
-import { conj, pushToList, addToList, resolveComma, resolveDollar, isEmpty, isString, isNumber, isOdd, isArray } from "./tree";
+import { pushToList, resolveComma, resolveDollar, isEmpty, isString, isNumber, isOdd, isArray } from "./tree";
 
 type FuncTokenGet = () => string | ELexControl;
 
-let graspeExprs = (acc: ICirruNode[], pullToken: FuncTokenGet) => {
-  let cursor = pullToken();
-  switch (cursor) {
-    case ELexControl.close:
-      return acc;
-    case ELexControl.open:
-      let current = graspeExprs([], pullToken);
-      return graspeExprs(conj(acc, current), pullToken);
-    case ELexControl.close:
-      throw new Error("Unexpected close token");
-    default:
-      if (isString(cursor)) {
-        return graspeExprs(conj(acc, cursor), pullToken);
-      } else {
-        console.log(cursor);
-        throw new Error("Unknown cursor");
-      }
+let graspeExprs = (pullToken: FuncTokenGet) => {
+  let acc: ICirruNode[] = [];
+  let pointer = acc;
+  let pointerStack = [];
+  while (true) {
+    let cursor = pullToken();
+    // console.log(pointerStack, pointer, cursor);
+    switch (cursor) {
+      case ELexControl.close:
+        if (pointerStack.length === 0) {
+          return pointer;
+        }
+        let collected = pointer;
+        pointer = pointerStack.pop();
+        pointer.push(collected);
+        break;
+      case ELexControl.open:
+        pointerStack.push(pointer);
+        pointer = [];
+        break;
+      case ELexControl.close:
+        throw new Error("Unexpected close token");
+      default:
+        if (isString(cursor)) {
+          pointer.push(cursor);
+          break;
+        } else {
+          console.log(JSON.stringify(cursor));
+          throw new Error("Unknown cursor");
+        }
+    }
   }
 };
 
@@ -28,7 +42,7 @@ let buildExprs = (pullToken: FuncTokenGet) => {
   while (true) {
     let chunk = pullToken();
     if (chunk === ELexControl.open) {
-      let expr = graspeExprs([], pullToken);
+      let expr = graspeExprs(pullToken);
       acc.push(expr);
       continue;
     } else if (chunk == null) {
@@ -259,15 +273,11 @@ let resolveIndentations = (initialTokens: LexList) => {
 
 export let parse = (code: string) => {
   let tokens = resolveIndentations(lex(code));
-  let refTokens = tokens.slice();
+  let pointer = 0;
   let pullToken = () => {
-    if (isEmpty(refTokens)) {
-      return null;
-    } else {
-      let result = refTokens[0];
-      refTokens.shift();
-      return result;
-    }
+    let c = tokens[pointer];
+    pointer += 1;
+    return c;
   };
   return resolveComma(resolveDollar(buildExprs(pullToken)));
 };
