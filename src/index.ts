@@ -194,38 +194,43 @@ let repeat = <T>(times: number, x: T) => {
   return xs;
 };
 
-let resolveIndentations = (acc: LexList, level: number, tokens: LexList) => {
-  if (isEmpty(tokens)) {
-    if (isEmpty(acc)) {
-      return [];
-    } else {
-      return addToList([ELexControl.open] as LexList, acc, repeat(level, ELexControl.close), [ELexControl.close]);
-    }
-  } else {
-    let cursor = tokens[0];
-    if (typeof cursor === "string") {
-      return resolveIndentations(conj(acc, cursor), level, tokens.slice(1));
-    } else if (cursor === ELexControl.open || cursor === ELexControl.close) {
-      return resolveIndentations(conj(acc, cursor), level, tokens.slice(1));
-    } else if (typeof cursor === "number") {
-      if (cursor > level) {
-        let delta = cursor - level;
-        return resolveIndentations(addToList(acc, repeat(delta, ELexControl.open)), cursor, tokens.slice(1));
-      } else if (cursor < level) {
-        let delta = level - cursor;
-        return resolveIndentations(addToList(acc, repeat(delta, ELexControl.close), [ELexControl.close, ELexControl.open]), cursor, tokens.slice(1));
+let resolveIndentations = (initialTokens: LexList) => {
+  let acc: LexList = [];
+  let level = 0;
+  let tokens: LexList = initialTokens;
+  while (true) {
+    if (isEmpty(tokens)) {
+      if (isEmpty(acc)) {
+        return [];
       } else {
-        return resolveIndentations(isEmpty(acc) ? [] : conj(acc, ELexControl.close, ELexControl.open), level, tokens.slice(1));
+        return addToList([ELexControl.open] as LexList, acc, repeat(level, ELexControl.close), [ELexControl.close]);
       }
     } else {
-      console.log(cursor);
-      throw new Error("Unknown token");
+      let cursor = tokens[0];
+      if (typeof cursor === "string") {
+        [acc, level, tokens] = [conj(acc, cursor), level, tokens.slice(1)];
+      } else if (cursor === ELexControl.open || cursor === ELexControl.close) {
+        [acc, level, tokens] = [conj(acc, cursor), level, tokens.slice(1)];
+      } else if (typeof cursor === "number") {
+        if (cursor > level) {
+          let delta = cursor - level;
+          [acc, level, tokens] = [addToList(acc, repeat(delta, ELexControl.open)), cursor, tokens.slice(1)];
+        } else if (cursor < level) {
+          let delta = level - cursor;
+          [acc, level, tokens] = [addToList(acc, repeat(delta, ELexControl.close), [ELexControl.close, ELexControl.open]), cursor, tokens.slice(1)];
+        } else {
+          [acc, level, tokens] = [isEmpty(acc) ? [] : conj(acc, ELexControl.close, ELexControl.open), level, tokens.slice(1)];
+        }
+      } else {
+        console.log(cursor);
+        throw new Error("Unknown token");
+      }
     }
   }
 };
 
 export let parse = (code: string) => {
-  let tokens = resolveIndentations([], 0, lex(code));
+  let tokens = resolveIndentations(lex(code));
   let refTokens = tokens.slice();
   let pullToken = () => {
     if (isEmpty(refTokens)) {

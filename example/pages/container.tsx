@@ -32,7 +32,11 @@ let Container: FC<{ router: GenRouterTypeMain }> = React.memo((props) => {
             let c = event.target.value;
             setCode(c);
             try {
-              setResult(JSON.stringify(parse(c), null, 2));
+              // setResult(JSON.stringify(parse(c), null, 2));
+
+              let started = Date.now();
+              let data = parse(c);
+              console.warn("finished", Date.now() - started);
             } catch (error) {
               console.dir(error);
               setResult(error.stack);
@@ -56,4 +60,5 @@ let styleHeader = css`
 let styleCode = css`
   padding: 8px;
   font-family: Source Code Pro, Menlo, monospace;
+  white-space: pre;
 `;
