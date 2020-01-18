@@ -35,29 +35,31 @@ export let resolveComma = (xs: ICirruNode[]) => {
 
 let commaHelper = (intialAfter: ICirruNode[]) => {
   let before: ICirruNode[] = [];
-  let after: ICirruNode[] = intialAfter.slice();
+  let after: ICirruNode[] = intialAfter;
+
+  let pointer = 0;
 
   while (true) {
-    if (isEmpty(after)) {
+    if (pointer >= after.length) {
       return before;
     }
-    let cursor = after[0];
-    let afterRest = after.slice(1);
+    let cursor = after[pointer];
+
     if (isArray(cursor) && notEmpty(cursor)) {
       let head = cursor[0];
       if (isArray(head)) {
         before.push(resolveComma(cursor));
-        after = afterRest;
+        pointer += 1;
       } else if (head === ",") {
         pushToList(before, resolveComma(cursor.slice(1)));
-        after = afterRest;
+        pointer += 1;
       } else {
         before.push(resolveComma(cursor));
-        after = afterRest;
+        pointer += 1;
       }
     } else {
       before.push(cursor);
-      after = afterRest;
+      pointer += 1;
     }
   }
 };
@@ -73,21 +75,24 @@ export let resolveDollar = (xs: ICirruNode[]) => {
 let dollarHelper = (initialAfter: ICirruNode[]) => {
   let before: ICirruNode[] = [];
   let after: ICirruNode[] = initialAfter;
+
+  let pointer = 0;
+
   while (true) {
-    if (isEmpty(after)) {
+    if (pointer >= after.length) {
       return before;
     } else {
-      let cursor = after[0];
-      let afterRest = after.slice(1);
+      let cursor = after[pointer];
+
       if (isArray(cursor)) {
         before.push(resolveDollar(cursor));
-        after = afterRest;
+        pointer += 1;
       } else if (cursor === "$") {
-        before.push(resolveDollar(afterRest));
-        after = [];
+        before.push(resolveDollar(after.slice(pointer + 1))); // pick items after pointer for $
+        pointer = after.length; // trying to exit
       } else {
         before.push(cursor);
-        after = afterRest;
+        pointer += 1;
       }
     }
   }

@@ -68,12 +68,15 @@ let lex = (initialCode: string) => {
   let buffer = "";
   let code = initialCode;
   // let count = 0;
+
+  let pointer = 0;
+
   while (true) {
     // count += 1;
     // if (count > 1000) {
     //   break;
     // }
-    if (isEmpty(code)) {
+    if (pointer >= code.length) {
       switch (state) {
         case ELexState.space:
           return acc;
@@ -92,30 +95,30 @@ let lex = (initialCode: string) => {
           throw new Error("Unkown state");
       }
     } else {
-      let c = code[0];
-      let body = code.slice(1);
+      let c = code[pointer];
+      pointer += 1;
       switch (state) {
         case ELexState.space:
           switch (c) {
             case " ":
-              [acc, state, buffer, code] = [acc, ELexState.space, "", body];
+              [acc, state, buffer] = [acc, ELexState.space, ""];
               break;
             case "\n":
-              [acc, state, buffer, code] = [acc, ELexState.indent, "", body];
+              [acc, state, buffer] = [acc, ELexState.indent, ""];
               break;
             case "(":
               acc.push(ELexControl.open);
-              [state, buffer, code] = [ELexState.space, "", body];
+              [state, buffer] = [ELexState.space, ""];
               break;
             case ")":
               acc.push(ELexControl.close);
-              [state, buffer, code] = [ELexState.space, "", body];
+              [state, buffer] = [ELexState.space, ""];
               break;
             case '"':
-              [acc, state, buffer, code] = [acc, ELexState.string, "", body];
+              [acc, state, buffer] = [acc, ELexState.string, ""];
               break;
             default:
-              [acc, state, buffer, code] = [acc, ELexState.token, c, body];
+              [acc, state, buffer] = [acc, ELexState.token, c];
               break;
           }
           break;
@@ -123,26 +126,26 @@ let lex = (initialCode: string) => {
           switch (c) {
             case " ":
               acc.push(buffer);
-              [state, buffer, code] = [ELexState.space, "", body];
+              [state, buffer] = [ELexState.space, ""];
               break;
             case '"':
               acc.push(buffer);
-              [state, buffer, code] = [ELexState.string, "", body];
+              [state, buffer] = [ELexState.string, ""];
               break;
             case "\n":
               acc.push(buffer);
-              [state, buffer, code] = [ELexState.indent, "", body];
+              [state, buffer] = [ELexState.indent, ""];
               break;
             case "(":
               acc.push(buffer, ELexControl.open);
-              [state, buffer, code] = [ELexState.space, "", body];
+              [state, buffer] = [ELexState.space, ""];
               break;
             case ")":
               acc.push(buffer, ELexControl.close);
-              [state, buffer, code] = [ELexState.space, "", body];
+              [state, buffer] = [ELexState.space, ""];
               break;
             default:
-              [acc, state, buffer, code] = [acc, ELexState.token, `${buffer}${c}`, body];
+              [acc, state, buffer] = [acc, ELexState.token, `${buffer}${c}`];
               break;
           }
           break;
@@ -150,31 +153,31 @@ let lex = (initialCode: string) => {
           switch (c) {
             case '"':
               acc.push(buffer);
-              [state, buffer, code] = [ELexState.space, "", body];
+              [state, buffer] = [ELexState.space, ""];
               break;
             case "\\":
-              [acc, state, buffer, code] = [acc, ELexState.escape, buffer, body];
+              [acc, state, buffer] = [acc, ELexState.escape, buffer];
               break;
             case "\n":
               throw new Error("Expected newline in string");
             default:
-              [acc, state, buffer, code] = [acc, ELexState.string, `${buffer}${c}`, body];
+              [acc, state, buffer] = [acc, ELexState.string, `${buffer}${c}`];
               break;
           }
           break;
         case ELexState.escape:
           switch (c) {
             case '"':
-              [acc, state, buffer, code] = [acc, ELexState.string, `${buffer}"`, body];
+              [acc, state, buffer] = [acc, ELexState.string, `${buffer}"`];
               break;
             case "t":
-              [acc, state, buffer, code] = [acc, ELexState.string, `${buffer}\t`, body];
+              [acc, state, buffer] = [acc, ELexState.string, `${buffer}\t`];
               break;
             case "n":
-              [acc, state, buffer, code] = [acc, ELexState.string, `${buffer}\n`, body];
+              [acc, state, buffer] = [acc, ELexState.string, `${buffer}\n`];
               break;
             case "\\":
-              [acc, state, buffer, code] = [acc, ELexState.string, `${buffer}\\`, body];
+              [acc, state, buffer] = [acc, ELexState.string, `${buffer}\\`];
               break;
             default:
               throw new Error(`Unknown ${c} in escape`);
@@ -183,22 +186,22 @@ let lex = (initialCode: string) => {
         case ELexState.indent:
           switch (c) {
             case " ":
-              [acc, state, buffer, code] = [acc, ELexState.indent, `${buffer}${c}`, body];
+              [acc, state, buffer] = [acc, ELexState.indent, `${buffer}${c}`];
               break;
             case "\n":
-              [acc, state, buffer, code] = [acc, ELexState.indent, "", body];
+              [acc, state, buffer] = [acc, ELexState.indent, ""];
               break;
             case '"':
               acc.push(parseIndentation(buffer));
-              [state, buffer, code] = [ELexState.string, "", body];
+              [state, buffer] = [ELexState.string, ""];
               break;
             case "(":
               acc.push(parseIndentation(buffer), ELexControl.open);
-              [state, buffer, code] = [ELexState.space, "", body];
+              [state, buffer] = [ELexState.space, ""];
               break;
             default:
               acc.push(parseIndentation(buffer));
-              [state, buffer, code] = [ELexState.token, c, body];
+              [state, buffer] = [ELexState.token, c];
               break;
           }
           break;

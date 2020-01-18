@@ -1,6 +1,6 @@
 {
   "name": "@cirru/parser.ts",
-  "version": "0.0.1-a1",
+  "version": "0.0.1-a2",
   "description": "Cirru Parser in TypeScript",
   "main": "index.js",
   "scripts": {
