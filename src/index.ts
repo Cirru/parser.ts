@@ -90,10 +90,12 @@ let lex = (initialCode: string) => {
               [acc, state, buffer, code] = [acc, ELexState.indent, "", body];
               break;
             case "(":
-              [acc, state, buffer, code] = [conj(acc, ELexControl.open), ELexState.space, "", body];
+              acc.push(ELexControl.open);
+              [state, buffer, code] = [ELexState.space, "", body];
               break;
             case ")":
-              [acc, state, buffer, code] = [conj(acc, ELexControl.close), ELexState.space, "", body];
+              acc.push(ELexControl.close);
+              [state, buffer, code] = [ELexState.space, "", body];
               break;
             case '"':
               [acc, state, buffer, code] = [acc, ELexState.string, "", body];
@@ -106,19 +108,24 @@ let lex = (initialCode: string) => {
         case ELexState.token:
           switch (c) {
             case " ":
-              [acc, state, buffer, code] = [conj(acc, buffer), ELexState.space, "", body];
+              acc.push(buffer);
+              [state, buffer, code] = [ELexState.space, "", body];
               break;
             case '"':
-              [acc, state, buffer, code] = [conj(acc, buffer), ELexState.string, "", body];
+              acc.push(buffer);
+              [state, buffer, code] = [ELexState.string, "", body];
               break;
             case "\n":
-              [acc, state, buffer, code] = [conj(acc, buffer), ELexState.indent, "", body];
+              acc.push(buffer);
+              [state, buffer, code] = [ELexState.indent, "", body];
               break;
             case "(":
-              [acc, state, buffer, code] = [conj(acc, buffer, ELexControl.open), ELexState.space, "", body];
+              acc.push(buffer, ELexControl.open);
+              [state, buffer, code] = [ELexState.space, "", body];
               break;
             case ")":
-              [acc, state, buffer, code] = [conj(acc, buffer, ELexControl.close), ELexState.space, "", body];
+              acc.push(buffer, ELexControl.close);
+              [state, buffer, code] = [ELexState.space, "", body];
               break;
             default:
               [acc, state, buffer, code] = [acc, ELexState.token, `${buffer}${c}`, body];
@@ -128,7 +135,8 @@ let lex = (initialCode: string) => {
         case ELexState.string:
           switch (c) {
             case '"':
-              [acc, state, buffer, code] = [conj(acc, buffer), ELexState.space, "", body];
+              acc.push(buffer);
+              [state, buffer, code] = [ELexState.space, "", body];
               break;
             case "\\":
               [acc, state, buffer, code] = [acc, ELexState.escape, buffer, body];
@@ -167,13 +175,16 @@ let lex = (initialCode: string) => {
               [acc, state, buffer, code] = [acc, ELexState.indent, "", body];
               break;
             case '"':
-              [acc, state, buffer, code] = [conj(acc, parseIndentation(buffer)), ELexState.string, "", body];
+              acc.push(parseIndentation(buffer));
+              [state, buffer, code] = [ELexState.string, "", body];
               break;
             case "(":
-              [acc, state, buffer, code] = [conj(acc, parseIndentation(buffer), ELexControl.open), ELexState.space, "", body];
+              acc.push(parseIndentation(buffer), ELexControl.open);
+              [state, buffer, code] = [ELexState.space, "", body];
               break;
             default:
-              [acc, state, buffer, code] = [conj(acc, parseIndentation(buffer)), ELexState.token, c, body];
+              acc.push(parseIndentation(buffer));
+              [state, buffer, code] = [ELexState.token, c, body];
               break;
           }
           break;
@@ -208,9 +219,11 @@ let resolveIndentations = (initialTokens: LexList) => {
     } else {
       let cursor = tokens[0];
       if (typeof cursor === "string") {
-        [acc, level, tokens] = [conj(acc, cursor), level, tokens.slice(1)];
+        acc.push(cursor);
+        [level, tokens] = [level, tokens.slice(1)];
       } else if (cursor === ELexControl.open || cursor === ELexControl.close) {
-        [acc, level, tokens] = [conj(acc, cursor), level, tokens.slice(1)];
+        acc.push(cursor);
+        [level, tokens] = [level, tokens.slice(1)];
       } else if (typeof cursor === "number") {
         if (cursor > level) {
           let delta = cursor - level;
@@ -219,7 +232,12 @@ let resolveIndentations = (initialTokens: LexList) => {
           let delta = level - cursor;
           [acc, level, tokens] = [addToList(acc, repeat(delta, ELexControl.close), [ELexControl.close, ELexControl.open]), cursor, tokens.slice(1)];
         } else {
-          [acc, level, tokens] = [isEmpty(acc) ? [] : conj(acc, ELexControl.close, ELexControl.open), level, tokens.slice(1)];
+          if (isEmpty(acc)) {
+            acc = [];
+          } else {
+            acc.push(ELexControl.close, ELexControl.open);
+          }
+          [level, tokens] = [level, tokens.slice(1)];
         }
       } else {
         console.log(cursor);
