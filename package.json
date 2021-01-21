@@ -61,7 +61,7 @@
     "dayjs": "^1.8.19",
     "emotion": "^10.0.27",
     "font-awesome": "^4.7.0",
-    "immer": "^5.2.1",
+    "immer": "^8.0.1",
     "query-string": "^6.9.0",
     "react": "^16.12.0",
     "react-dom": "^16.12.0"
