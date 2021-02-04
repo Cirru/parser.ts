@@ -6,7 +6,6 @@ let ForkTsCheckerWebpackPlugin = require("fork-ts-checker-webpack-plugin");
 
 let { matchCssRule, matchFontsRule, matchTsRule } = require("./shared");
 let splitChunks = require("./split-chunks");
-let dllManifest = require("./dll/manifest.json");
 
 module.exports = {
   mode: "development",
@@ -43,23 +42,16 @@ module.exports = {
   },
   optimization: {
     minimize: false,
-    namedModules: true,
     chunkIds: "named",
     splitChunks: splitChunks,
   },
   plugins: [
-    new ForkTsCheckerWebpackPlugin({ checkSyntacticErrors: true, async: false }),
-    new webpack.DllReferencePlugin({
-      manifest: path.resolve(__dirname, "dll/manifest.json"),
-    }),
-    new webpack.NamedModulesPlugin(),
+    new ForkTsCheckerWebpackPlugin({ async: false }),
     new HtmlWebpackPlugin({
       filename: "index.html",
       template: "template.ejs",
-      trackingCode: "",
     }),
     new HtmlWebpackTagsPlugin({
-      tags: [`dll/${dllManifest.name}.js`],
       append: false,
     }),
   ],

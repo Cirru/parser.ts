@@ -1,11 +1,10 @@
 import React, { FC, useState } from "react";
-import { css, cx } from "emotion";
-import { fullscreen, row, expand, column, rowParted } from "@jimengio/flex-styles";
+import { css, cx } from "@emotion/css";
+import { fullscreen, row, expand, column, rowParted } from "../styles";
 
-import { genRouter, GenRouterTypeMain } from "controller/generated-router";
 import { parse } from "../../src/index";
 
-let Container: FC<{ router: GenRouterTypeMain }> = React.memo((props) => {
+let Container: FC<{ router: any }> = React.memo((props) => {
   let [code, setCode] = useState("");
   let [result, setResult] = useState(null);
 
