@@ -11,9 +11,6 @@ let ProgressPlugin = require("@jimengio/ci-progress-webpack-plugin");
 
 let { matchExtractCssRule, matchFontsRule, matchTsReleaseRule } = require("./shared");
 let splitChunks = require("./split-chunks");
-let dllManifest = require("./dll/manifest-release.json");
-
-let trackingCode = fs.readFileSync(path.join(__dirname, "ga.html"), "utf8");
 
 module.exports = {
   mode: "production",
@@ -24,10 +21,9 @@ module.exports = {
     filename: "[name].[chunkhash:8].js",
     path: path.join(__dirname, "../dist"),
   },
-  devtool: "none",
+  devtool: "hidden-source-map",
   optimization: {
     minimize: true,
-    namedModules: true,
     chunkIds: "named",
     splitChunks: splitChunks,
   },
@@ -49,13 +45,10 @@ module.exports = {
     warnings: true,
   },
   plugins: [
-    new ForkTsCheckerWebpackPlugin({ checkSyntacticErrors: true, async: false }),
+    new ForkTsCheckerWebpackPlugin({ async: false }),
     new MiniCssExtractPlugin({
       filename: "[name].[hash:8].css",
       chunkFilename: "[name].[chunkhash:8].css",
-    }),
-    new webpack.DllReferencePlugin({
-      manifest: path.resolve(__dirname, "dll/manifest-release.json"),
     }),
     new webpack.DefinePlugin({
       "process.env": {
@@ -65,10 +58,8 @@ module.exports = {
     new HtmlWebpackPlugin({
       filename: "index.html",
       template: "template.ejs",
-      trackingCode,
     }),
     new HtmlWebpackTagsPlugin({
-      tags: [`${dllManifest.name}.js`],
       append: false,
     }),
     new DuplicatePackageCheckerPlugin(),
