@@ -27,6 +27,7 @@ jobs:
             ${{ runner.os }}-yarn-
 
       - run: yarn
+      - run: yarn test
       - run: yarn tsc -d --project tsconfig-compile.json --outDir lib/
 
       - run: yarn release
