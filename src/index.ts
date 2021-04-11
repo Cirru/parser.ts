@@ -47,9 +47,10 @@ let buildExprs = (pullToken: FuncTokenGet) => {
       continue;
     } else if (chunk == null) {
       return acc;
+    } else if (chunk === ELexControl.close) {
+      throw new Error(`Unexpected ")"`);
     } else {
-      console.log(chunk);
-      throw new Error("Unknown chunk");
+      throw new Error(`Unexpected chunk ${JSON.stringify(chunk)}`);
     }
   }
 };
@@ -206,7 +207,7 @@ let lex = (initialCode: string) => {
           }
           break;
         default:
-          console.log("Unknown", c);
+          console.log("Unknown state:", c);
           return acc;
       }
     }
