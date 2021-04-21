@@ -2,6 +2,8 @@ let fs = require("fs");
 let path = require("path");
 let { parse } = require("./index");
 
+test("single quote", () => expect(parse('a "\\\'"')).toEqual([["a", "'"]]));
+
 test("demo", () => {
   let code = fs.readFileSync(path.join(__dirname, "../test/cirru/demo.cirru"), "utf8");
   let data = require(path.join(__dirname, "../test/ast/demo.json"));
