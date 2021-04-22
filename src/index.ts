@@ -171,6 +171,9 @@ let lex = (initialCode: string) => {
             case '"':
               [acc, state, buffer] = [acc, ELexState.string, `${buffer}"`];
               break;
+            case "'":
+              [acc, state, buffer] = [acc, ELexState.string, `${buffer}'`];
+              break;
             case "t":
               [acc, state, buffer] = [acc, ELexState.string, `${buffer}\t`];
               break;
