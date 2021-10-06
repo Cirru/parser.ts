@@ -1,6 +1,8 @@
 import { ICirruNode, ELexState, ELexControl, LexList, LexListItem } from "./types";
 import { pushToList, resolveComma, resolveDollar, isEmpty, isString, isNumber, isOdd, isArray } from "./tree";
 
+export { ICirruNode } from "./types";
+
 type FuncTokenGet = () => string | ELexControl;
 
 let graspeExprs = (pullToken: FuncTokenGet) => {
