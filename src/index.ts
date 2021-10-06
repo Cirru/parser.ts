@@ -1,7 +1,8 @@
-import { ICirruNode, ELexState, ELexControl, LexList, LexListItem } from "./types";
+import { ELexState, ELexControl, LexList, LexListItem } from "./types";
+import * as types from "./types";
 import { pushToList, resolveComma, resolveDollar, isEmpty, isString, isNumber, isOdd, isArray } from "./tree";
 
-export { ICirruNode } from "./types";
+export type ICirruNode = types.ICirruNode;
 
 type FuncTokenGet = () => string | ELexControl;
 
