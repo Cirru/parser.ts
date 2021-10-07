@@ -25,6 +25,7 @@ let Container: FC<{ router: any }> = React.memo((props) => {
       </div>
       <div className={cx(expand, row)}>
         <textarea
+          placeholder="code here..."
           className={cx(expand, styleCode)}
           value={code}
           onChange={(event) => {
@@ -41,7 +42,7 @@ let Container: FC<{ router: any }> = React.memo((props) => {
             }
           }}
         />
-        <textarea className={cx(expand, styleCode)} value={result} />
+        <textarea placeholder="result here..." className={cx(expand, styleCode)} value={result || ""} onChange={(e) => {}} />
       </div>
     </div>
   );

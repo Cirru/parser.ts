@@ -5,8 +5,10 @@
 .prettierrc
 dist
 example
-template.ejs
+index.html
 tsconfig.json
-webpack
 yarn.lock
 test/
+
+.github/
+jest.config.js
