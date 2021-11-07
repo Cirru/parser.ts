@@ -75,3 +75,13 @@ test("unfolding", () => {
   let data = require(path.join(__dirname, "../test/ast/unfolding.json"));
   expect(parse(code)).toEqual(data);
 });
+
+test("with escaping", () => {
+  let code = `"\'a"`;
+  let data = [["'a"]];
+  expect(parse(code)).toEqual(data);
+
+  code = `"\\u{3455}"`;
+  data = [["\\u{3455}"]];
+  expect(parse(code)).toEqual(data);
+});

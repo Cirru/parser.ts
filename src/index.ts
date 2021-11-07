@@ -186,6 +186,10 @@ let lex = (initialCode: string) => {
             case "\\":
               [acc, state, buffer] = [acc, ELexState.string, `${buffer}\\`];
               break;
+            case "u":
+              console.warn(`unicode escaping not supported yet, ${code.slice(pointer - 1, pointer + 10)}...`);
+              [acc, state, buffer] = [acc, ELexState.string, `${buffer}\\u`];
+              break;
             default:
               throw new Error(`Unknown ${c} in escape`);
           }
