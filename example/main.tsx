@@ -1,4 +1,4 @@
-import ReactDOM from "react-dom";
+import { createRoot } from "react-dom/client";
 import React from "react";
 
 import "./main.css";
@@ -6,7 +6,8 @@ import "./main.css";
 import Container from "./pages/container";
 
 const renderApp = (Container) => {
-  ReactDOM.render(<Container router={{}} />, document.querySelector(".app"));
+  let root = createRoot(document.querySelector(".app"));
+  root.render(<Container router={{}} />);
 };
 
 window.onload = (e) => renderApp(Container);

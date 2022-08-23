@@ -183,6 +183,9 @@ let lex = (initialCode: string) => {
             case "n":
               [acc, state, buffer] = [acc, ELexState.string, `${buffer}\n`];
               break;
+            case "r":
+              [acc, state, buffer] = [acc, ELexState.string, `${buffer}\r`];
+              break;
             case "\\":
               [acc, state, buffer] = [acc, ELexState.string, `${buffer}\\`];
               break;
@@ -191,7 +194,7 @@ let lex = (initialCode: string) => {
               [acc, state, buffer] = [acc, ELexState.string, `${buffer}\\u`];
               break;
             default:
-              throw new Error(`Unknown ${c} in escape`);
+              throw new Error(`Unknown \\${c} in escape`);
           }
           break;
         case ELexState.indent:
