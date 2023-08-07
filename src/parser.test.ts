@@ -76,6 +76,12 @@ test("unfolding", () => {
   expect(parse(code)).toEqual(data);
 });
 
+test("list-match", () => {
+  let code = fs.readFileSync(path.join(__dirname, "../test/cirru/list-match.cirru"), "utf8");
+  let data = require(path.join(__dirname, "../test/ast/list-match.json"));
+  expect(parse(code)).toEqual(data);
+});
+
 test("with escaping", () => {
   let code = `"\'a"`;
   let data = [["'a"]];
