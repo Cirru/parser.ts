@@ -288,6 +288,18 @@ let resolveIndentations = (initialTokens: LexList) => {
   }
 };
 
+/**
+ * Parse Cirru code into an abstract syntax tree (AST).
+ * Handles indentation-based syntax and returns an array of expressions.
+ *
+ * @param code - Cirru source code string to parse
+ * @returns Array of parsed expressions (ICirruNode[])
+ * @example
+ * ```typescript
+ * parse("defn square (x)\n  * x x")
+ * // Returns: [["defn", "square", ["x"], ["*", "x", "x"]]]
+ * ```
+ */
 export let parse = (code: string) => {
   let tokens = resolveIndentations(lex(code));
   let pointer = 0;
@@ -297,4 +309,28 @@ export let parse = (code: string) => {
     return c;
   };
   return resolveComma(resolveDollar(buildExprs(pullToken)));
+};
+
+/**
+ * Parse a single Cirru expression from a one-liner code string.
+ * Throws an error if the code contains zero or multiple expressions.
+ *
+ * @param code - Cirru source code string containing exactly one expression
+ * @returns Single parsed expression (ICirruNode)
+ * @throws {Error} If the code doesn't contain exactly one expression
+ * @example
+ * ```typescript
+ * parseOneLiner("add 1 2")
+ * // Returns: ["add", "1", "2"]
+ *
+ * parseOneLiner("(add 1 2)")
+ * // Returns: ["add", "1", "2"]
+ * ```
+ */
+export let parseOneLiner = (code: string) => {
+  let result = parse(code);
+  if (result.length !== 1) {
+    throw new Error(`Expected single expression, got ${result.length} expressions`);
+  }
+  return result[0];
 };

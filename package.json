@@ -1,6 +1,6 @@
 {
   "name": "@cirru/parser.ts",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "description": "Cirru Parser in TypeScript",
   "main": "lib/index.js",
   "scripts": {
@@ -16,6 +16,14 @@
   "keywords": [],
   "author": "",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Cirru/parser.ts.git"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
   "devDependencies": {
     "@emotion/css": "^11.11.2",
     "@types/jest": "^29.5.3",
