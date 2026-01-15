@@ -1,6 +1,6 @@
 let fs = require("fs");
 let path = require("path");
-let { parse } = require("./index");
+let { parse, parseOneLiner } = require("./index");
 
 test("single quote", () => expect(parse('a "\\\'"')).toEqual([["a", "'"]]));
 
@@ -90,4 +90,34 @@ test("with escaping", () => {
   code = `"\\u{3455}"`;
   data = [["\\u{3455}"]];
   expect(parse(code)).toEqual(data);
+});
+
+describe("parseOneLiner", () => {
+  test("simple expression", () => {
+    expect(parseOneLiner("add 1 2")).toEqual(["add", "1", "2"]);
+  });
+
+  test("expression with parentheses", () => {
+    expect(parseOneLiner("(add 1 2)")).toEqual([["add", "1", "2"]]);
+  });
+
+  test("nested expression", () => {
+    expect(parseOneLiner("add (mul 2 3) 4")).toEqual(["add", ["mul", "2", "3"], "4"]);
+  });
+
+  test("expression with string", () => {
+    expect(parseOneLiner('print "hello world"')).toEqual(["print", "hello world"]);
+  });
+
+  test("single token", () => {
+    expect(parseOneLiner("token")).toEqual(["token"]);
+  });
+
+  test("throws error on empty input", () => {
+    expect(() => parseOneLiner("")).toThrow("Expected single expression, got 0 expressions");
+  });
+
+  test("throws error on multiple expressions", () => {
+    expect(() => parseOneLiner("add 1 2\nmul 3 4")).toThrow("Expected single expression, got 2 expressions");
+  });
 });
