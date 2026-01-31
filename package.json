@@ -1,6 +1,6 @@
 {
   "name": "@cirru/parser.ts",
-  "version": "0.0.7",
+  "version": "0.0.8",
   "description": "Cirru Parser in TypeScript",
   "main": "lib/index.js",
   "scripts": {
@@ -10,8 +10,7 @@
     "test": "yarn jest",
     "compile": "rm -rfv lib/* && tsc -d --project tsconfig-compile.json --outDir lib/",
     "prepare": "yarn test && yarn compile",
-    "upload": "rsync -avr --progress dist/ cirru.org:~/repo/Cirru/parser.ts",
-    "postinstall": "rm -rfv node_modules/@types/*/node_modules/@types/react"
+    "upload": "rsync -avr --progress dist/ cirru.org:~/repo/Cirru/parser.ts"
   },
   "keywords": [],
   "author": "",
