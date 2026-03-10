@@ -26,18 +26,16 @@ export let isNumber = (x: any) => typeof x === "number";
 export let isOdd = (x: number) => x % 2 === 1;
 
 export let resolveComma = (xs: ICirruNode[]) => {
-  if (isEmpty(xs)) {
+  if (xs.length === 0) {
     return [];
   } else {
-    return commaHelper(xs);
+    return commaHelper(xs, 0);
   }
 };
 
-let commaHelper = (intialAfter: ICirruNode[]) => {
+let commaHelper = (after: ICirruNode[], start: number): ICirruNode[] => {
   let before: ICirruNode[] = [];
-  let after: ICirruNode[] = intialAfter;
-
-  let pointer = 0;
+  let pointer = start;
 
   while (true) {
     if (pointer >= after.length) {
@@ -45,16 +43,18 @@ let commaHelper = (intialAfter: ICirruNode[]) => {
     }
     let cursor = after[pointer];
 
-    if (isArray(cursor) && notEmpty(cursor)) {
+    if (isArray(cursor) && cursor.length > 0) {
       let head = cursor[0];
       if (isArray(head)) {
-        before.push(resolveComma(cursor));
+        before.push(commaHelper(cursor, 0));
         pointer += 1;
       } else if (head === ",") {
-        pushToList(before, resolveComma(cursor.slice(1)));
+        // spread comma-expanded tail into before without a slice allocation
+        const expanded = commaHelper(cursor, 1);
+        for (let i = 0; i < expanded.length; i++) before.push(expanded[i]);
         pointer += 1;
       } else {
-        before.push(resolveComma(cursor));
+        before.push(commaHelper(cursor, 0));
         pointer += 1;
       }
     } else {
@@ -65,35 +65,34 @@ let commaHelper = (intialAfter: ICirruNode[]) => {
 };
 
 export let resolveDollar = (xs: ICirruNode[]) => {
-  if (isEmpty(xs)) {
+  if (xs.length === 0) {
     return [];
   } else {
-    return dollarHelper(xs);
+    return dollarHelper(xs, 0);
   }
 };
 
-let dollarHelper = (initialAfter: ICirruNode[]) => {
+// Pass `start` to avoid `after.slice(pointer + 1)` allocation on every `$` token.
+let dollarHelper = (after: ICirruNode[], start: number): ICirruNode[] => {
   let before: ICirruNode[] = [];
-  let after: ICirruNode[] = initialAfter;
-
-  let pointer = 0;
+  let pointer = start;
 
   while (true) {
     if (pointer >= after.length) {
       return before;
-    } else {
-      let cursor = after[pointer];
+    }
+    let cursor = after[pointer];
 
-      if (isArray(cursor)) {
-        before.push(resolveDollar(cursor));
-        pointer += 1;
-      } else if (cursor === "$") {
-        before.push(resolveDollar(after.slice(pointer + 1))); // pick items after pointer for $
-        pointer = after.length; // trying to exit
-      } else {
-        before.push(cursor);
-        pointer += 1;
-      }
+    if (isArray(cursor)) {
+      before.push(dollarHelper(cursor, 0));
+      pointer += 1;
+    } else if (cursor === "$") {
+      before.push(dollarHelper(after, pointer + 1)); // no slice needed — pass bounds
+      break;
+    } else {
+      before.push(cursor);
+      pointer += 1;
     }
   }
+  return before;
 };
