@@ -1,100 +1,89 @@
-import { ELexState, ELexControl } from "./types";
+import { ELexState } from "./types";
 import * as types from "./types";
-import { resolveComma, resolveDollar, isOdd, isString } from "./tree";
+import { resolveComma, resolveDollar, isOdd } from "./tree";
 
 export type ICirruNode = types.ICirruNode;
 
-type FuncTokenGet = () => string | ELexControl;
-
-let graspeExprs = (pullToken: FuncTokenGet) => {
-  let acc: ICirruNode[] = [];
-  let pointer = acc;
-  let pointerStack = [];
-  while (true) {
-    let cursor = pullToken();
-    switch (cursor) {
-      case ELexControl.close:
-        if (pointerStack.length === 0) {
-          return pointer;
-        }
-        let collected = pointer;
-        pointer = pointerStack.pop();
-        pointer.push(collected);
-        break;
-      case ELexControl.open:
-        pointerStack.push(pointer);
-        pointer = [];
-        break;
-      default:
-        if (isString(cursor)) {
-          pointer.push(cursor);
-          break;
-        } else {
-          console.log(JSON.stringify(cursor));
-          throw new Error("Unknown cursor");
-        }
-    }
-  }
-};
-
-let buildExprs = (pullToken: FuncTokenGet) => {
-  let acc = [];
-  while (true) {
-    let chunk = pullToken();
-    if (chunk === ELexControl.open) {
-      let expr = graspeExprs(pullToken);
-      acc.push(expr);
-      continue;
-    } else if (chunk == null) {
-      return acc;
-    } else if (chunk === ELexControl.close) {
-      throw new Error('Unexpected ")"');
-    } else {
-      throw new Error(`Unexpected chunk ${JSON.stringify(chunk)}`);
-    }
-  }
-};
-
-// Merged lex + resolveIndentations in a single pass.
-// - Uses integer indent counter instead of a string buffer (no GC per indent space).
-// - Emits open/close tokens for indentation directly, eliminating the intermediate LexList.
-// - Token strings extracted with code.slice(start, end) — zero allocation per character.
-// - String literals: slice when no escape sequences, fall back to buffer only if escapes appear.
-// - Tracks hasDollar / hasComma so the caller can skip tree-transform passes when not needed.
-let lexAndResolve = (code: string): { tokens: (string | ELexControl)[]; hasDollar: boolean; hasComma: boolean } => {
-  let acc: (string | ELexControl)[] = [];
-  let state = ELexState.indent as ELexState;
-  let buffer = "";            // only used for string content that contains escape sequences
-  let level = 0;
-  let indentCount = 0;        // spaces counted while in indent state
-  let tokenStart = 0;         // start index in `code` of the current token
-  let stringStart = 0;        // start index in `code` of string content (after opening '"')
-  let stringHasEscape = false;
+// Single-pass lex + build: eliminates the intermediate tokens[] array entirely.
+// The lexer drives a stack-based tree builder directly — no token buffer, no pullToken closure.
+//
+// Stack model:
+//   result[]    — top-level expressions being collected
+//   stack[]     — in-progress arrays at deeper nesting (from indent or '(')
+//   current     — innermost array currently being populated; null when between top-level exprs
+//
+// emitOpen()   → push current onto stack, start a fresh array as current
+//               (or, if current is null, start the first/next top-level expression)
+// emitClose()  → complete current array; if stack is empty push to result, else push to parent
+// emitToken()  → append a string leaf to current
+//
+// "first" tracks whether emitOpen() has been called for the outermost wrapper yet.
+// The original code used acc.unshift(open) + trailing closes; here we emit that open
+// lazily on the first non-whitespace character so we avoid any end-of-input special case.
+let lexAndBuild = (code: string): ICirruNode[] => {
+  const result: ICirruNode[] = [];
+  const stack: ICirruNode[][] = [];
+  let current: ICirruNode[] | null = null;
   let hasDollar = false;
   let hasComma = false;
 
+  let state = ELexState.indent as ELexState;
+  let buffer = "";            // string content when escape sequences appear
+  let level = 0;
+  let indentCount = 0;
+  let tokenStart = 0;
+  let stringStart = 0;
+  let stringHasEscape = false;
+  // Whether we've emitted the very first emitOpen() (the outer wrapper)
+  let first = true;
+
   const len = code.length;
 
+  const emitOpen = () => {
+    if (current !== null) stack.push(current);
+    current = [];
+  };
+
+  const emitClose = () => {
+    const completed = current!;
+    if (stack.length === 0) {
+      result.push(completed);
+      current = null;
+    } else {
+      current = stack.pop()!;
+      current.push(completed);
+    }
+  };
+
+  const emitToken = (tok: string) => {
+    (current as ICirruNode[]).push(tok);
+    if (tok === "$") hasDollar = true;
+    else if (tok === ",") hasComma = true;
+  };
+
+  // Called whenever a new line's first non-whitespace character is encountered.
+  // newLevel = indentCount >> 1 (already validated as even before calling).
+  // On the very first call: lazily emit the outer open, then any extra opens for depth.
+  // Subsequent calls: emit close/open boundaries as the indent level changes.
   const flushIndent = (newLevel: number) => {
+    if (first) {
+      first = false;
+      emitOpen(); // outer wrapper open (replaces acc.unshift at end of original)
+      for (let i = 0; i < newLevel; i++) emitOpen();
+      level = newLevel;
+      return;
+    }
     if (newLevel === level) {
-      if (acc.length > 0) acc.push(ELexControl.close, ELexControl.open);
+      emitClose(); emitOpen(); // sibling expression boundary
       return;
     }
     if (newLevel > level) {
-      const delta = newLevel - level;
-      for (let i = 0; i < delta; i++) acc.push(ELexControl.open);
+      for (let i = 0; i < newLevel - level; i++) emitOpen();
     } else {
-      const delta = level - newLevel;
-      for (let i = 0; i < delta; i++) acc.push(ELexControl.close);
-      acc.push(ELexControl.close, ELexControl.open);
+      for (let i = 0; i < level - newLevel; i++) emitClose();
+      emitClose(); emitOpen();
     }
     level = newLevel;
-  };
-
-  const pushToken = (tok: string) => {
-    acc.push(tok);
-    if (tok === "$") hasDollar = true;
-    else if (tok === ",") hasComma = true;
   };
 
   let pointer = 0;
@@ -110,10 +99,10 @@ let lexAndResolve = (code: string): { tokens: (string | ELexControl)[]; hasDolla
             indentCount = 0;
             break;
           case "(":
-            acc.push(ELexControl.open);
+            emitOpen();
             break;
           case ")":
-            acc.push(ELexControl.close);
+            emitClose();
             break;
           case '"':
             state = ELexState.string;
@@ -130,45 +119,44 @@ let lexAndResolve = (code: string): { tokens: (string | ELexControl)[]; hasDolla
       case ELexState.token:
         switch (c) {
           case " ":
-            pushToken(code.slice(tokenStart, pointer - 1));
+            emitToken(code.slice(tokenStart, pointer - 1));
             state = ELexState.space;
             break;
           case '"':
-            pushToken(code.slice(tokenStart, pointer - 1));
+            emitToken(code.slice(tokenStart, pointer - 1));
             state = ELexState.string;
             stringStart = pointer;
             stringHasEscape = false;
             buffer = "";
             break;
           case "\n":
-            pushToken(code.slice(tokenStart, pointer - 1));
+            emitToken(code.slice(tokenStart, pointer - 1));
             state = ELexState.indent;
             indentCount = 0;
             break;
           case "(":
-            pushToken(code.slice(tokenStart, pointer - 1));
-            acc.push(ELexControl.open);
+            emitToken(code.slice(tokenStart, pointer - 1));
+            emitOpen();
             state = ELexState.space;
             break;
           case ")":
-            pushToken(code.slice(tokenStart, pointer - 1));
-            acc.push(ELexControl.close);
+            emitToken(code.slice(tokenStart, pointer - 1));
+            emitClose();
             state = ELexState.space;
             break;
           default:
-            // no-op: position tracked via tokenStart/pointer, no buffer needed
             break;
         }
         break;
       case ELexState.string:
         switch (c) {
           case '"':
-            acc.push(stringHasEscape ? buffer : code.slice(stringStart, pointer - 1));
+            emitToken(stringHasEscape ? buffer : code.slice(stringStart, pointer - 1));
             state = ELexState.space;
             break;
           case "\\":
             if (!stringHasEscape) {
-              buffer = code.slice(stringStart, pointer - 1); // collect chars before '\'
+              buffer = code.slice(stringStart, pointer - 1);
               stringHasEscape = true;
             }
             state = ELexState.escape;
@@ -217,7 +205,7 @@ let lexAndResolve = (code: string): { tokens: (string | ELexControl)[]; hasDolla
           case "(":
             if (isOdd(indentCount)) throw new Error(`Invalid indentation size ${indentCount}`);
             flushIndent(indentCount >> 1);
-            acc.push(ELexControl.open);
+            emitOpen();
             state = ELexState.space;
             indentCount = 0;
             break;
@@ -230,30 +218,28 @@ let lexAndResolve = (code: string): { tokens: (string | ELexControl)[]; hasDolla
             break;
         }
         break;
-      default:
-        console.log("Unknown state:", c);
-        return { tokens: acc, hasDollar, hasComma };
     }
   }
 
-  // End of input
-  switch (state) {
-    case ELexState.token:
-      pushToken(code.slice(tokenStart, len));
-      break;
-    case ELexState.escape:
-      throw new Error("Should not be escape");
-    case ELexState.string:
-      throw new Error("Should not be string");
+  // Flush any token still in progress at end of input
+  if (state === ELexState.token) {
+    emitToken(code.slice(tokenStart, len));
+  } else if (state === ELexState.escape) {
+    throw new Error("Should not be escape");
+  } else if (state === ELexState.string) {
+    throw new Error("Should not be string");
   }
 
-  if (acc.length === 0) {
-    return { tokens: [], hasDollar, hasComma };
-  }
-  acc.unshift(ELexControl.open);
-  for (let i = 0; i < level; i++) acc.push(ELexControl.close);
-  acc.push(ELexControl.close);
-  return { tokens: acc, hasDollar, hasComma };
+  if (first) return []; // no content was seen
+
+  // Close remaining open levels (mirrors the original: level closes + 1 final close)
+  for (let i = 0; i < level; i++) emitClose();
+  emitClose();
+
+  let ret: ICirruNode[] = result;
+  if (hasDollar) ret = resolveDollar(ret);
+  if (hasComma) ret = resolveComma(ret);
+  return ret;
 };
 
 /**
@@ -269,18 +255,9 @@ let lexAndResolve = (code: string): { tokens: (string | ELexControl)[]; hasDolla
  * ```
  */
 export let parse = (code: string) => {
-  const { tokens, hasDollar, hasComma } = lexAndResolve(code);
-  let pointer = 0;
-  let pullToken = () => {
-    let c = tokens[pointer];
-    pointer += 1;
-    return c;
-  };
-  let result = buildExprs(pullToken);
-  if (hasDollar) result = resolveDollar(result);
-  if (hasComma) result = resolveComma(result);
-  return result;
+  return lexAndBuild(code);
 };
+
 
 /**
  * Parse a single Cirru expression from a one-liner code string.
