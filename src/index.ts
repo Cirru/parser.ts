@@ -1,6 +1,6 @@
 import { ELexState } from "./types";
 import * as types from "./types";
-import { resolveComma, resolveDollar, isOdd } from "./tree";
+import { resolveDollarComma, isOdd } from "./tree";
 
 export type ICirruNode = types.ICirruNode;
 
@@ -262,10 +262,10 @@ let lexAndBuild = (code: string): ICirruNode[] => {
   for (let i = 0; i < level; i++) emitClose();
   emitClose();
 
-  let ret: ICirruNode[] = result;
-  if (hasDollar) ret = resolveDollar(ret);
-  if (hasComma) ret = resolveComma(ret);
-  return ret;
+  if (hasDollar || hasComma) {
+    return resolveDollarComma(result);
+  }
+  return result;
 };
 
 /**

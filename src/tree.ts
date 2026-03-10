@@ -72,6 +72,17 @@ export let resolveDollar = (xs: ICirruNode[]) => {
   }
 };
 
+// Combined pass intended to be equivalent to `resolveComma(resolveDollar(xs))`.
+// Correctness matters more than speed here, so keep the logic structurally close
+// to the existing two helpers and validate with explicit edge-case tests.
+export let resolveDollarComma = (xs: ICirruNode[]) => {
+  if (xs.length === 0) {
+    return [];
+  } else {
+    return dollarCommaHelper(xs, 0);
+  }
+};
+
 // Pass `start` to avoid `after.slice(pointer + 1)` allocation on every `$` token.
 let dollarHelper = (after: ICirruNode[], start: number): ICirruNode[] => {
   let before: ICirruNode[] = [];
@@ -94,5 +105,35 @@ let dollarHelper = (after: ICirruNode[], start: number): ICirruNode[] => {
       pointer += 1;
     }
   }
+  return before;
+};
+
+let dollarCommaHelper = (after: ICirruNode[], start: number): ICirruNode[] => {
+  let before: ICirruNode[] = [];
+  let pointer = start;
+
+  while (true) {
+    if (pointer >= after.length) {
+      return before;
+    }
+    let cursor = after[pointer];
+
+    if (isArray(cursor)) {
+      const child = dollarCommaHelper(cursor, 0);
+      if (child.length > 0 && child[0] === ",") {
+        for (let i = 1; i < child.length; i++) before.push(child[i]);
+      } else {
+        before.push(child);
+      }
+      pointer += 1;
+    } else if (cursor === "$") {
+      before.push(dollarCommaHelper(after, pointer + 1));
+      break;
+    } else {
+      before.push(cursor);
+      pointer += 1;
+    }
+  }
+
   return before;
 };

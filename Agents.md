@@ -43,13 +43,14 @@ CI workflows (`.github/workflows/`) use `actions/setup-node@v4` with `cache: yar
 - Framework: Jest + `ts-jest`
 - Test file: `src/parser.test.ts`
 - Fixtures: `test/cirru/*.cirru` (source) + `test/ast/*.json` (expected output)
-- Every optimization must keep all **22 tests passing**.
+- Every optimization must keep all **27 tests passing**.
 
 Rules:
 
 - Run `yarn test` before and after any structural change.
 - `folded-beginning.cirru` is the trickiest edge case: the file can begin with a blank line and then indented content, so the very first indentation flush must preserve top-level structure instead of introducing an extra sibling boundary.
 - Any optimization that touches `$` or `,` semantics must be treated as high-risk and validated against the full fixture suite before considering benchmark wins.
+- There are now explicit tree-level equivalence tests for the combined `$`/`,` pass; keep them green before trusting any transform rewrite.
 
 ---
 
@@ -67,8 +68,8 @@ fallback           → test/cirru/*.cirru joined ×20 (~16 KB)
 
 ```bash
 # Typical real-world numbers (2026-03, Apple Silicon)
-# Small fixtures ×20 (16 KB):  ~4,000 ops/sec  (was ~2,250 at original baseline)
-# calcit-core.cirru (244 KB):  ~496 ops/sec   (was ~323 at original baseline)
+# Small fixtures ×20 (16 KB):  ~5,000 ops/sec  (was ~2,250 at original baseline)
+# calcit-core.cirru (244 KB):  ~594 ops/sec   (was ~323 at original baseline)
 ```
 
 ---
@@ -139,6 +140,14 @@ parse(code)
 - Escape handling still reconstructs exact characters, but only on the rare escape path.
 - Result: **3,615 → 4,013 ops/sec** on 16 KB fixtures, **479 → 496 ops/sec** on 244 KB real-world input.
 
+### Round 7 — combine `$` and `,` tree transforms
+
+- Added **`resolveDollarComma(xs)`** in `src/tree.ts` as a single recursive pass intended to be equivalent to `resolveComma(resolveDollar(xs))`.
+- Parser now uses the combined transform whenever either `hasDollar` or `hasComma` is present.
+- Added focused equivalence tests for empty input, comma expansion, dollar nesting, unfolding-style mixed input, and nested-array-head behavior.
+- This is a semantics-sensitive optimization, so the extra tests are part of the safety net, not just regression coverage.
+- Result: **4,013 → 5,058 ops/sec** on 16 KB fixtures, **496 → 594 ops/sec** on 244 KB real-world input.
+
 ---
 
 ## V8 Profiling
@@ -150,40 +159,39 @@ node --prof-process isolate-*.log 2>/dev/null | head -100
 rm -f isolate-*.log .bench/
 ```
 
-Latest profile findings (2026-03, after round 6, large real-world file):
+Latest profile findings (2026-03, after round 7, large real-world file):
 | Function | JS ticks |
 |------------------|-----------|
-| `lexAndBuild` | 48.8% |
-| `commaHelper` | 10.9% |
-| `dollarHelper` | 10.5% |
+| `lexAndBuild` | 58.3% |
+| `dollarCommaHelper` | 12.7% |
 
 Interpretation:
 
-- `lexAndBuild()` is still the dominant hotspot, but the low-risk character-dispatch optimization was worthwhile.
-- The next expensive pure-JS work is now the post-parse tree transforms for `$` and `,`.
-- A combined tree pass is the most attractive next target, but it is **semantics-sensitive** and should only land with full-fixture validation.
+- The combined tree pass paid off: the two separate helpers disappeared from the profile and total GC dropped again.
+- `lexAndBuild()` is now even more clearly the dominant pure-JS hotspot.
+- Future lexer work should still prefer local, semantics-preserving changes unless a larger rewrite can be defended with tests first.
 
 ---
 
 ## Known Bottlenecks / Future Work
 
-1. **`resolveDollar` / `resolveComma` tree walks** — together they are now ~21% of JS ticks on the large-file profile. A combined post-parse transform is likely the next best optimization, but only if it can be proven equivalent to `resolveComma(resolveDollar(xs))` on edge cases.
-2. **`lexAndBuild()` dispatch cost** — still ~49% of JS ticks. Further wins are possible, but they should prefer local changes over structural rewrites unless a benchmark clearly justifies the added complexity.
-3. **Array pre-sizing / pooling** — possible, but lower priority than the transform passes and easier to get wrong for little gain.
+1. **`lexAndBuild()` dispatch cost** — now ~58% of JS ticks on the large-file profile. This is the clearest remaining hotspot.
+2. **Character extraction on rare paths** — escape handling still uses `code[pointer - 1]`; tiny wins may still exist, but they should stay local and preserve exact string semantics.
+3. **Array pre-sizing / pooling** — possible, but lower priority than lexer work and easier to get wrong for little gain.
 
 ---
 
 ## File Map
 
-| File                    | Purpose                                                                     |
-| ----------------------- | --------------------------------------------------------------------------- |
-| `src/index.ts`          | Parser entry point; `lexAndBuild`, `parse`, `parseOneLiner`                 |
-| `src/tree.ts`           | Tree helpers: `resolveDollar`, `resolveComma`, utilities                    |
-| `src/types.ts`          | `ELexState`, `ELexControl`, `ICirruNode`                                    |
-| `src/parser.test.ts`    | All 22 tests                                                                |
-| `src/bench.ts`          | Benchmark script                                                            |
-| `tsconfig.bench.json`   | Separate tsconfig for bench (es2022, node types)                            |
-| `tsconfig-compile.json` | Library build config                                                        |
-| `test/cirru/*.cirru`    | Test input fixtures                                                         |
-| `test/ast/*.json`       | Expected AST outputs                                                        |
-| `lib/`                  | Compiled library output (committed)                                         |
+| File                    | Purpose                                                     |
+| ----------------------- | ----------------------------------------------------------- |
+| `src/index.ts`          | Parser entry point; `lexAndBuild`, `parse`, `parseOneLiner` |
+| `src/tree.ts`           | Tree helpers: `resolveDollar`, `resolveComma`, utilities    |
+| `src/types.ts`          | `ELexState`, `ELexControl`, `ICirruNode`                    |
+| `src/parser.test.ts`    | All 22 tests                                                |
+| `src/bench.ts`          | Benchmark script                                            |
+| `tsconfig.bench.json`   | Separate tsconfig for bench (es2022, node types)            |
+| `tsconfig-compile.json` | Library build config                                        |
+| `test/cirru/*.cirru`    | Test input fixtures                                         |
+| `test/ast/*.json`       | Expected AST outputs                                        |
+| `lib/`                  | Compiled library output (committed)                         |
