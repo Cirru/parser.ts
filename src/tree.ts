@@ -1,4 +1,4 @@
-import { ICirruNode } from "./types";
+import type { ICirruNode } from "./types";
 
 export let pushToList = <T>(acc: T[], xs: T[], ys?: T[], zs?: T[]) => {
   let result = acc;

@@ -1,15 +1,15 @@
 {
   "name": "@cirru/parser.ts",
-  "version": "0.0.8",
+  "version": "0.0.9",
   "description": "Cirru Parser in TypeScript",
   "main": "lib/index.js",
   "scripts": {
-    "release": "rm -rfv dist/* && time vite build --base=./",
+    "release": "rm -rfv dist && time vite build --base=./",
     "build": "yarn release",
     "serve": "http-server dist/ -s",
     "test": "yarn jest",
     "bench": "tsc -p tsconfig.bench.json --outDir .bench && node .bench/bench.js && rm -rf .bench",
-    "compile": "rm -rfv lib/* && tsc -d --project tsconfig-compile.json --outDir lib/",
+    "compile": "rm -rfv lib && tsc -d --project tsconfig-compile.json --outDir lib/",
     "prepare": "yarn test && yarn compile",
     "upload": "rsync -avr --progress dist/ cirru.org:~/repo/Cirru/parser.ts"
   },

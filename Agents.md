@@ -34,7 +34,8 @@ corepack enable          # one-time setup per machine
 yarn install --immutable # CI; exact lockfile
 ```
 
-CI workflows (`.github/workflows/`) use `actions/setup-node@v4` with `cache: yarn` (no manual step needed).
+CI workflows (`.github/workflows/`) enable Corepack before running Yarn commands.
+Do **not** use `actions/setup-node` with `cache: yarn` here, because its cache probe runs before `corepack enable` and can fail by invoking global Yarn 1 against the project's `packageManager: yarn@4.13.0`.
 
 ---
 
