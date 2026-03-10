@@ -12,3 +12,7 @@ webpack/dll/*
 
 .cache-loader/*
 lib/*
+
+.yarn/*.gz
+
+/bench.js

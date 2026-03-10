@@ -1,6 +1,6 @@
 import { ELexState, ELexControl, LexList, LexListItem } from "./types";
 import * as types from "./types";
-import { pushToList, resolveComma, resolveDollar, isEmpty, isString, isNumber, isOdd, isArray } from "./tree";
+import { resolveComma, resolveDollar, isEmpty, isString, isOdd } from "./tree";
 
 export type ICirruNode = types.ICirruNode;
 
@@ -71,23 +71,18 @@ let lex = (initialCode: string) => {
   let state = ELexState.indent as ELexState;
   let buffer = "";
   let code = initialCode;
-  // let count = 0;
 
   let pointer = 0;
+  let len = code.length;
 
   while (true) {
-    // count += 1;
-    // if (count > 1000) {
-    //   break;
-    // }
-    if (pointer >= code.length) {
+    if (pointer >= len) {
       switch (state) {
         case ELexState.space:
           return acc;
         case ELexState.token:
           acc.push(buffer);
           return acc;
-          break;
         case ELexState.escape:
           throw new Error("Should not be escape");
         case ELexState.indent:
@@ -105,24 +100,24 @@ let lex = (initialCode: string) => {
         case ELexState.space:
           switch (c) {
             case " ":
-              [acc, state, buffer] = [acc, ELexState.space, ""];
+              // stay in space, buffer stays empty
               break;
             case "\n":
-              [acc, state, buffer] = [acc, ELexState.indent, ""];
+              state = ELexState.indent;
               break;
             case "(":
               acc.push(ELexControl.open);
-              [state, buffer] = [ELexState.space, ""];
               break;
             case ")":
               acc.push(ELexControl.close);
-              [state, buffer] = [ELexState.space, ""];
               break;
             case '"':
-              [acc, state, buffer] = [acc, ELexState.string, ""];
+              state = ELexState.string;
+              buffer = "";
               break;
             default:
-              [acc, state, buffer] = [acc, ELexState.token, c];
+              state = ELexState.token;
+              buffer = c;
               break;
           }
           break;
@@ -130,26 +125,31 @@ let lex = (initialCode: string) => {
           switch (c) {
             case " ":
               acc.push(buffer);
-              [state, buffer] = [ELexState.space, ""];
+              state = ELexState.space;
+              buffer = "";
               break;
             case '"':
               acc.push(buffer);
-              [state, buffer] = [ELexState.string, ""];
+              state = ELexState.string;
+              buffer = "";
               break;
             case "\n":
               acc.push(buffer);
-              [state, buffer] = [ELexState.indent, ""];
+              state = ELexState.indent;
+              buffer = "";
               break;
             case "(":
               acc.push(buffer, ELexControl.open);
-              [state, buffer] = [ELexState.space, ""];
+              state = ELexState.space;
+              buffer = "";
               break;
             case ")":
               acc.push(buffer, ELexControl.close);
-              [state, buffer] = [ELexState.space, ""];
+              state = ELexState.space;
+              buffer = "";
               break;
             default:
-              [acc, state, buffer] = [acc, ELexState.token, `${buffer}${c}`];
+              buffer = buffer + c;
               break;
           }
           break;
@@ -157,65 +157,70 @@ let lex = (initialCode: string) => {
           switch (c) {
             case '"':
               acc.push(buffer);
-              [state, buffer] = [ELexState.space, ""];
+              state = ELexState.space;
+              buffer = "";
               break;
             case "\\":
-              [acc, state, buffer] = [acc, ELexState.escape, buffer];
+              state = ELexState.escape;
               break;
             case "\n":
               throw new Error("Expected newline in string");
             default:
-              [acc, state, buffer] = [acc, ELexState.string, `${buffer}${c}`];
+              buffer = buffer + c;
               break;
           }
           break;
         case ELexState.escape:
           switch (c) {
             case '"':
-              [acc, state, buffer] = [acc, ELexState.string, `${buffer}"`];
+              buffer = buffer + '"';
               break;
             case "'":
-              [acc, state, buffer] = [acc, ELexState.string, `${buffer}'`];
+              buffer = buffer + "'";
               break;
             case "t":
-              [acc, state, buffer] = [acc, ELexState.string, `${buffer}\t`];
+              buffer = buffer + "\t";
               break;
             case "n":
-              [acc, state, buffer] = [acc, ELexState.string, `${buffer}\n`];
+              buffer = buffer + "\n";
               break;
             case "r":
-              [acc, state, buffer] = [acc, ELexState.string, `${buffer}\r`];
+              buffer = buffer + "\r";
               break;
             case "\\":
-              [acc, state, buffer] = [acc, ELexState.string, `${buffer}\\`];
+              buffer = buffer + "\\";
               break;
             case "u":
               console.warn(`unicode escaping not supported yet, ${code.slice(pointer - 1, pointer + 10)}...`);
-              [acc, state, buffer] = [acc, ELexState.string, `${buffer}\\u`];
+              buffer = buffer + "\\u";
               break;
             default:
               throw new Error(`Unknown \\${c} in escape`);
           }
+          state = ELexState.string;
           break;
         case ELexState.indent:
           switch (c) {
             case " ":
-              [acc, state, buffer] = [acc, ELexState.indent, `${buffer}${c}`];
+              buffer = buffer + " ";
               break;
             case "\n":
-              [acc, state, buffer] = [acc, ELexState.indent, ""];
+              buffer = "";
               break;
             case '"':
               acc.push(parseIndentation(buffer));
-              [state, buffer] = [ELexState.string, ""];
+              state = ELexState.string;
+              buffer = "";
               break;
             case "(":
               acc.push(parseIndentation(buffer), ELexControl.open);
-              [state, buffer] = [ELexState.space, ""];
+              state = ELexState.space;
+              buffer = "";
               break;
             default:
               acc.push(parseIndentation(buffer));
-              [state, buffer] = [ELexState.token, c];
+              state = ELexState.token;
+              buffer = c;
               break;
           }
           break;
@@ -226,14 +231,6 @@ let lex = (initialCode: string) => {
     }
   }
   return acc;
-};
-
-let repeat = <T>(times: number, x: T) => {
-  let xs: T[] = [];
-  for (let i = 1; i <= times; i++) {
-    xs.push(x);
-  }
-  return xs;
 };
 
 let resolveIndentations = (initialTokens: LexList) => {
@@ -247,7 +244,8 @@ let resolveIndentations = (initialTokens: LexList) => {
         return [];
       } else {
         acc.unshift(ELexControl.open);
-        pushToList(acc, repeat(level, ELexControl.close), [ELexControl.close]);
+        for (let i = 0; i < level; i++) acc.push(ELexControl.close);
+        acc.push(ELexControl.close);
         return acc;
       }
     } else {
@@ -255,30 +253,26 @@ let resolveIndentations = (initialTokens: LexList) => {
       if (typeof cursor === "string") {
         acc.push(cursor);
         pointer += 1;
-        [level] = [level];
       } else if (cursor === ELexControl.open || cursor === ELexControl.close) {
         acc.push(cursor);
         pointer += 1;
-        [level] = [level];
       } else if (typeof cursor === "number") {
         if (cursor > level) {
           let delta = cursor - level;
-          pushToList(acc, repeat(delta, ELexControl.open));
+          for (let i = 0; i < delta; i++) acc.push(ELexControl.open);
           pointer += 1;
-          [level] = [cursor];
+          level = cursor;
         } else if (cursor < level) {
           let delta = level - cursor;
-          pushToList(acc, repeat(delta, ELexControl.close), [ELexControl.close, ELexControl.open]);
+          for (let i = 0; i < delta; i++) acc.push(ELexControl.close);
+          acc.push(ELexControl.close, ELexControl.open);
           pointer += 1;
-          [level] = [cursor];
+          level = cursor;
         } else {
-          if (isEmpty(acc)) {
-            acc = [];
-          } else {
+          if (!isEmpty(acc)) {
             acc.push(ELexControl.close, ELexControl.open);
           }
           pointer += 1;
-          [level] = [level];
         }
       } else {
         console.log(cursor);
