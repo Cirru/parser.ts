@@ -2,26 +2,33 @@ import * as fs from "fs";
 import * as path from "path";
 import { parse } from "./index";
 
-// Build a large test input by combining all test files many times
-const testFiles = ["demo", "html", "comma", "folding", "indent", "line", "parentheses", "quote", "unfolding", "list-match"];
+let inputCode: string;
+let inputLabel: string;
 
-const testInputs = testFiles.map((name) => {
-  // works both from project root (bench.js) and from src/ (bench.ts with ts-node)
-  const candidates = [path.join(__dirname, `../test/cirru/${name}.cirru`), path.join(__dirname, `test/cirru/${name}.cirru`)];
-  for (const p of candidates) {
-    if (fs.existsSync(p)) return fs.readFileSync(p, "utf8");
-  }
-  throw new Error(`Cannot find ${name}.cirru`);
-});
+const envFile = process.env.BENCH_FILE;
+if (envFile) {
+  // Use an externally provided file (path never committed to source)
+  inputCode = fs.readFileSync(envFile, "utf8");
+  inputLabel = path.basename(envFile);
+} else {
+  // Fall back to bundled test fixtures
+  const testFiles = ["demo", "html", "comma", "folding", "indent", "line", "parentheses", "quote", "unfolding", "list-match"];
+  const resolveFixture = (name: string) => {
+    const candidates = [path.join(__dirname, `../test/cirru/${name}.cirru`), path.join(__dirname, `test/cirru/${name}.cirru`)];
+    for (const p of candidates) {
+      if (fs.existsSync(p)) return fs.readFileSync(p, "utf8");
+    }
+    throw new Error(`Cannot find ${name}.cirru`);
+  };
+  inputCode = Array.from({ length: 20 }, () => testFiles.map(resolveFixture).join("\n\n")).join("\n\n");
+  inputLabel = "bundled test fixtures ×20";
+}
 
-// Concatenate inputs to get a decent-sized payload
-const bigInput = Array.from({ length: 20 }, () => testInputs.join("\n\n")).join("\n\n");
+console.log(`Input: ${inputLabel}  (${inputCode.length.toLocaleString()} chars)`);
 
-console.log(`Input size: ${bigInput.length} chars`);
-
-function bench(label: string, fn: () => void, iterations = 2000) {
+function bench(label: string, fn: () => void, iterations = 500) {
   // Warmup
-  for (let i = 0; i < 200; i++) fn();
+  for (let i = 0; i < 50; i++) fn();
 
   const start = process.hrtime.bigint();
   for (let i = 0; i < iterations; i++) fn();
@@ -33,6 +40,6 @@ function bench(label: string, fn: () => void, iterations = 2000) {
   console.log(`${label}: ${opsPerSec.toLocaleString()} ops/sec  (${msPerOp}ms/op, ${iterations} iters, ${totalMs.toFixed(1)}ms total)`);
 }
 
-bench("parse(bigInput)", () => {
-  parse(bigInput);
+bench("parse", () => {
+  parse(inputCode);
 });
