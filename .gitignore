@@ -16,3 +16,4 @@ lib/*
 .yarn/*.gz
 
 /bench.js
+/.bench/
