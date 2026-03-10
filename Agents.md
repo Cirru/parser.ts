@@ -48,7 +48,8 @@ CI workflows (`.github/workflows/`) use `actions/setup-node@v4` with `cache: yar
 Rules:
 
 - Run `yarn test` before and after any structural change.
-- `folded-beginning.cirru` is the trickiest edge case: file starts with indented content on line 1 — the `flushIndent` path that emits `close+open` must guard `if (acc.length > 0)`.
+- `folded-beginning.cirru` is the trickiest edge case: the file can begin with a blank line and then indented content, so the very first indentation flush must preserve top-level structure instead of introducing an extra sibling boundary.
+- Any optimization that touches `$` or `,` semantics must be treated as high-risk and validated against the full fixture suite before considering benchmark wins.
 
 ---
 
@@ -66,8 +67,8 @@ fallback           → test/cirru/*.cirru joined ×20 (~16 KB)
 
 ```bash
 # Typical real-world numbers (2026-03, Apple Silicon)
-# Small fixtures ×20 (16 KB):  ~3,600 ops/sec  (was ~2,250 at original baseline)
-# calcit-core.cirru (244 KB):  ~480 ops/sec   (was ~323 at original baseline)
+# Small fixtures ×20 (16 KB):  ~4,000 ops/sec  (was ~2,250 at original baseline)
+# calcit-core.cirru (244 KB):  ~496 ops/sec   (was ~323 at original baseline)
 ```
 
 ---
@@ -130,6 +131,14 @@ parse(code)
 - Result: +16% small (3,118 → 3,615 ops/sec), **+21% large (395 → 479 ops/sec)**.
 - **Total from original baseline**: +61% (16 KB) / +48% (244 KB).
 
+### Round 6 — numeric dispatch in hot lexer loop
+
+- **`code.charCodeAt(pointer++)`** replaced `code[pointer++]` in `lexAndBuild()`.
+- Hot-path state dispatch now compares integer char codes for space/newline/quote/parens/backslash instead of 1-char strings.
+- `code.slice(...)` is still used for token extraction, so token contents and edge-case behavior stay unchanged.
+- Escape handling still reconstructs exact characters, but only on the rare escape path.
+- Result: **3,615 → 4,013 ops/sec** on 16 KB fixtures, **479 → 496 ops/sec** on 244 KB real-world input.
+
 ---
 
 ## V8 Profiling
@@ -141,21 +150,26 @@ node --prof-process isolate-*.log 2>/dev/null | head -100
 rm -f isolate-*.log .bench/
 ```
 
-Profile findings (2026-03, before round 3+4):
+Latest profile findings (2026-03, after round 6, large real-world file):
 | Function | JS ticks |
 |------------------|-----------|
-| `lexAndResolve` | 23.2% |
-| `buildExprs` | 9.1% |
-| `dollarHelper` | 5.4% |
-| `commaHelper` | 4.7% |
+| `lexAndBuild` | 48.8% |
+| `commaHelper` | 10.9% |
+| `dollarHelper` | 10.5% |
+
+Interpretation:
+
+- `lexAndBuild()` is still the dominant hotspot, but the low-risk character-dispatch optimization was worthwhile.
+- The next expensive pure-JS work is now the post-parse tree transforms for `$` and `,`.
+- A combined tree pass is the most attractive next target, but it is **semantics-sensitive** and should only land with full-fixture validation.
 
 ---
 
 ## Known Bottlenecks / Future Work
 
-1. **`resolveDollar` / `resolveComma` tree walks** — `calcit-core.cirru` has ~3,500 `$` tokens; `resolveDollar` still does a full tree walk. Inlining the dollar/comma resolution into `lexAndBuild` itself (using a second stack) could eliminate this entirely.
-2. **Array pre-sizing** — inner expression arrays (`current = []`) start empty and grow. Pre-allocating with an estimated size could reduce V8 hidden-class transitions for large expressions.
-3. **Stack GC** — `stack` and `current` arrays are allocated per-call; a reusable pool would help for extremely hot paths.
+1. **`resolveDollar` / `resolveComma` tree walks** — together they are now ~21% of JS ticks on the large-file profile. A combined post-parse transform is likely the next best optimization, but only if it can be proven equivalent to `resolveComma(resolveDollar(xs))` on edge cases.
+2. **`lexAndBuild()` dispatch cost** — still ~49% of JS ticks. Further wins are possible, but they should prefer local changes over structural rewrites unless a benchmark clearly justifies the added complexity.
+3. **Array pre-sizing / pooling** — possible, but lower priority than the transform passes and easier to get wrong for little gain.
 
 ---
 

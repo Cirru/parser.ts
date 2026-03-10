@@ -21,6 +21,18 @@ export type ICirruNode = types.ICirruNode;
 // The original code used acc.unshift(open) + trailing closes; here we emit that open
 // lazily on the first non-whitespace character so we avoid any end-of-input special case.
 let lexAndBuild = (code: string): ICirruNode[] => {
+  const CHAR_SPACE = 32;
+  const CHAR_NEWLINE = 10;
+  const CHAR_DQUOTE = 34;
+  const CHAR_APOSTROPHE = 39;
+  const CHAR_LPAREN = 40;
+  const CHAR_RPAREN = 41;
+  const CHAR_BACKSLASH = 92;
+  const CHAR_R = 114;
+  const CHAR_T = 116;
+  const CHAR_N = 110;
+  const CHAR_U = 117;
+
   const result: ICirruNode[] = [];
   const stack: ICirruNode[][] = [];
   let current: ICirruNode[] | null = null;
@@ -28,7 +40,7 @@ let lexAndBuild = (code: string): ICirruNode[] => {
   let hasComma = false;
 
   let state = ELexState.indent as ELexState;
-  let buffer = "";            // string content when escape sequences appear
+  let buffer = ""; // string content when escape sequences appear
   let level = 0;
   let indentCount = 0;
   let tokenStart = 0;
@@ -74,37 +86,39 @@ let lexAndBuild = (code: string): ICirruNode[] => {
       return;
     }
     if (newLevel === level) {
-      emitClose(); emitOpen(); // sibling expression boundary
+      emitClose();
+      emitOpen(); // sibling expression boundary
       return;
     }
     if (newLevel > level) {
       for (let i = 0; i < newLevel - level; i++) emitOpen();
     } else {
       for (let i = 0; i < level - newLevel; i++) emitClose();
-      emitClose(); emitOpen();
+      emitClose();
+      emitOpen();
     }
     level = newLevel;
   };
 
   let pointer = 0;
   while (pointer < len) {
-    const c = code[pointer++];
+    const c = code.charCodeAt(pointer++);
     switch (state) {
       case ELexState.space:
         switch (c) {
-          case " ":
+          case CHAR_SPACE:
             break;
-          case "\n":
+          case CHAR_NEWLINE:
             state = ELexState.indent;
             indentCount = 0;
             break;
-          case "(":
+          case CHAR_LPAREN:
             emitOpen();
             break;
-          case ")":
+          case CHAR_RPAREN:
             emitClose();
             break;
-          case '"':
+          case CHAR_DQUOTE:
             state = ELexState.string;
             stringStart = pointer;
             stringHasEscape = false;
@@ -118,28 +132,28 @@ let lexAndBuild = (code: string): ICirruNode[] => {
         break;
       case ELexState.token:
         switch (c) {
-          case " ":
+          case CHAR_SPACE:
             emitToken(code.slice(tokenStart, pointer - 1));
             state = ELexState.space;
             break;
-          case '"':
+          case CHAR_DQUOTE:
             emitToken(code.slice(tokenStart, pointer - 1));
             state = ELexState.string;
             stringStart = pointer;
             stringHasEscape = false;
             buffer = "";
             break;
-          case "\n":
+          case CHAR_NEWLINE:
             emitToken(code.slice(tokenStart, pointer - 1));
             state = ELexState.indent;
             indentCount = 0;
             break;
-          case "(":
+          case CHAR_LPAREN:
             emitToken(code.slice(tokenStart, pointer - 1));
             emitOpen();
             state = ELexState.space;
             break;
-          case ")":
+          case CHAR_RPAREN:
             emitToken(code.slice(tokenStart, pointer - 1));
             emitClose();
             state = ELexState.space;
@@ -150,50 +164,62 @@ let lexAndBuild = (code: string): ICirruNode[] => {
         break;
       case ELexState.string:
         switch (c) {
-          case '"':
+          case CHAR_DQUOTE:
             emitToken(stringHasEscape ? buffer : code.slice(stringStart, pointer - 1));
             state = ELexState.space;
             break;
-          case "\\":
+          case CHAR_BACKSLASH:
             if (!stringHasEscape) {
               buffer = code.slice(stringStart, pointer - 1);
               stringHasEscape = true;
             }
             state = ELexState.escape;
             break;
-          case "\n":
+          case CHAR_NEWLINE:
             throw new Error("Expected newline in string");
           default:
-            if (stringHasEscape) buffer = buffer + c;
+            if (stringHasEscape) buffer = buffer + code[pointer - 1];
             break;
         }
         break;
       case ELexState.escape:
         switch (c) {
-          case '"':  buffer = buffer + '"';  break;
-          case "'":  buffer = buffer + "'";  break;
-          case "t":  buffer = buffer + "\t"; break;
-          case "n":  buffer = buffer + "\n"; break;
-          case "r":  buffer = buffer + "\r"; break;
-          case "\\":  buffer = buffer + "\\"; break;
-          case "u":
+          case CHAR_DQUOTE:
+            buffer = buffer + '"';
+            break;
+          case CHAR_APOSTROPHE:
+            buffer = buffer + "'";
+            break;
+          case CHAR_T:
+            buffer = buffer + "\t";
+            break;
+          case CHAR_N:
+            buffer = buffer + "\n";
+            break;
+          case CHAR_R:
+            buffer = buffer + "\r";
+            break;
+          case CHAR_BACKSLASH:
+            buffer = buffer + "\\";
+            break;
+          case CHAR_U:
             console.warn(`unicode escaping not supported yet, ${code.slice(pointer - 1, pointer + 10)}...`);
             buffer = buffer + "\\u";
             break;
           default:
-            throw new Error(`Unknown \\${c} in escape`);
+            throw new Error(`Unknown \\${code[pointer - 1]} in escape`);
         }
         state = ELexState.string;
         break;
       case ELexState.indent:
         switch (c) {
-          case " ":
+          case CHAR_SPACE:
             indentCount++;
             break;
-          case "\n":
+          case CHAR_NEWLINE:
             indentCount = 0;
             break;
-          case '"':
+          case CHAR_DQUOTE:
             if (isOdd(indentCount)) throw new Error(`Invalid indentation size ${indentCount}`);
             flushIndent(indentCount >> 1);
             state = ELexState.string;
@@ -202,7 +228,7 @@ let lexAndBuild = (code: string): ICirruNode[] => {
             buffer = "";
             indentCount = 0;
             break;
-          case "(":
+          case CHAR_LPAREN:
             if (isOdd(indentCount)) throw new Error(`Invalid indentation size ${indentCount}`);
             flushIndent(indentCount >> 1);
             emitOpen();
@@ -257,7 +283,6 @@ let lexAndBuild = (code: string): ICirruNode[] => {
 export let parse = (code: string) => {
   return lexAndBuild(code);
 };
-
 
 /**
  * Parse a single Cirru expression from a one-liner code string.
