@@ -1,4 +1,4 @@
-import { ICirruNode } from "./types";
+import type { ICirruNode } from "./types";
 
 export let pushToList = <T>(acc: T[], xs: T[], ys?: T[], zs?: T[]) => {
   let result = acc;
@@ -26,18 +26,16 @@ export let isNumber = (x: any) => typeof x === "number";
 export let isOdd = (x: number) => x % 2 === 1;
 
 export let resolveComma = (xs: ICirruNode[]) => {
-  if (isEmpty(xs)) {
+  if (xs.length === 0) {
     return [];
   } else {
-    return commaHelper(xs);
+    return commaHelper(xs, 0);
   }
 };
 
-let commaHelper = (intialAfter: ICirruNode[]) => {
+let commaHelper = (after: ICirruNode[], start: number): ICirruNode[] => {
   let before: ICirruNode[] = [];
-  let after: ICirruNode[] = intialAfter;
-
-  let pointer = 0;
+  let pointer = start;
 
   while (true) {
     if (pointer >= after.length) {
@@ -45,16 +43,18 @@ let commaHelper = (intialAfter: ICirruNode[]) => {
     }
     let cursor = after[pointer];
 
-    if (isArray(cursor) && notEmpty(cursor)) {
+    if (isArray(cursor) && cursor.length > 0) {
       let head = cursor[0];
       if (isArray(head)) {
-        before.push(resolveComma(cursor));
+        before.push(commaHelper(cursor, 0));
         pointer += 1;
       } else if (head === ",") {
-        pushToList(before, resolveComma(cursor.slice(1)));
+        // spread comma-expanded tail into before without a slice allocation
+        const expanded = commaHelper(cursor, 1);
+        for (let i = 0; i < expanded.length; i++) before.push(expanded[i]);
         pointer += 1;
       } else {
-        before.push(resolveComma(cursor));
+        before.push(commaHelper(cursor, 0));
         pointer += 1;
       }
     } else {
@@ -65,35 +65,75 @@ let commaHelper = (intialAfter: ICirruNode[]) => {
 };
 
 export let resolveDollar = (xs: ICirruNode[]) => {
-  if (isEmpty(xs)) {
+  if (xs.length === 0) {
     return [];
   } else {
-    return dollarHelper(xs);
+    return dollarHelper(xs, 0);
   }
 };
 
-let dollarHelper = (initialAfter: ICirruNode[]) => {
-  let before: ICirruNode[] = [];
-  let after: ICirruNode[] = initialAfter;
+// Combined pass intended to be equivalent to `resolveComma(resolveDollar(xs))`.
+// Correctness matters more than speed here, so keep the logic structurally close
+// to the existing two helpers and validate with explicit edge-case tests.
+export let resolveDollarComma = (xs: ICirruNode[]) => {
+  if (xs.length === 0) {
+    return [];
+  } else {
+    return dollarCommaHelper(xs, 0);
+  }
+};
 
-  let pointer = 0;
+// Pass `start` to avoid `after.slice(pointer + 1)` allocation on every `$` token.
+let dollarHelper = (after: ICirruNode[], start: number): ICirruNode[] => {
+  let before: ICirruNode[] = [];
+  let pointer = start;
 
   while (true) {
     if (pointer >= after.length) {
       return before;
-    } else {
-      let cursor = after[pointer];
+    }
+    let cursor = after[pointer];
 
-      if (isArray(cursor)) {
-        before.push(resolveDollar(cursor));
-        pointer += 1;
-      } else if (cursor === "$") {
-        before.push(resolveDollar(after.slice(pointer + 1))); // pick items after pointer for $
-        pointer = after.length; // trying to exit
-      } else {
-        before.push(cursor);
-        pointer += 1;
-      }
+    if (isArray(cursor)) {
+      before.push(dollarHelper(cursor, 0));
+      pointer += 1;
+    } else if (cursor === "$") {
+      before.push(dollarHelper(after, pointer + 1)); // no slice needed — pass bounds
+      break;
+    } else {
+      before.push(cursor);
+      pointer += 1;
     }
   }
+  return before;
+};
+
+let dollarCommaHelper = (after: ICirruNode[], start: number): ICirruNode[] => {
+  let before: ICirruNode[] = [];
+  let pointer = start;
+
+  while (true) {
+    if (pointer >= after.length) {
+      return before;
+    }
+    let cursor = after[pointer];
+
+    if (isArray(cursor)) {
+      const child = dollarCommaHelper(cursor, 0);
+      if (child.length > 0 && child[0] === ",") {
+        for (let i = 1; i < child.length; i++) before.push(child[i]);
+      } else {
+        before.push(child);
+      }
+      pointer += 1;
+    } else if (cursor === "$") {
+      before.push(dollarCommaHelper(after, pointer + 1));
+      break;
+    } else {
+      before.push(cursor);
+      pointer += 1;
+    }
+  }
+
+  return before;
 };

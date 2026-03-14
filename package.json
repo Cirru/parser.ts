@@ -1,14 +1,15 @@
 {
   "name": "@cirru/parser.ts",
-  "version": "0.0.8",
+  "version": "0.0.9",
   "description": "Cirru Parser in TypeScript",
   "main": "lib/index.js",
   "scripts": {
-    "release": "rm -rfv dist/* && time vite build --base=./",
+    "release": "rm -rfv dist && time vite build --base=./",
     "build": "yarn release",
     "serve": "http-server dist/ -s",
     "test": "yarn jest",
-    "compile": "rm -rfv lib/* && tsc -d --project tsconfig-compile.json --outDir lib/",
+    "bench": "tsc -p tsconfig.bench.json --outDir .bench && node .bench/bench.js && rm -rf .bench",
+    "compile": "rm -rfv lib && tsc -d --project tsconfig-compile.json --outDir lib/",
     "prepare": "yarn test && yarn compile",
     "upload": "rsync -avr --progress dist/ cirru.org:~/repo/Cirru/parser.ts"
   },
@@ -26,7 +27,7 @@
   "devDependencies": {
     "@emotion/css": "^11.11.2",
     "@types/jest": "^29.5.3",
-    "@types/node": "^20.4.6",
+    "@types/node": "^25.4.0",
     "@types/react": "^18.2.18",
     "@types/react-dom": "^18.2.7",
     "dayjs": "^1.11.9",
@@ -37,7 +38,7 @@
     "ts-jest": "^29.1.1",
     "typescript": "^5.1.6",
     "typescript-styled-plugin": "^0.18.3",
-    "vite": "^4.4.8"
+    "vite": "^8.0.0-beta.18"
   },
-  "dependencies": {}
+  "packageManager": "yarn@4.13.0"
 }
