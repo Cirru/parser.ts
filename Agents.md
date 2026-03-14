@@ -16,7 +16,7 @@ Main exports: `parse(code)` and `parseOneLiner(code)` from `src/index.ts`.
 ## Quick Commands
 
 ```bash
-yarn test          # run all 22 Jest tests
+yarn test          # run all Jest tests
 yarn bench         # benchmark on bundled test fixtures (×20, ~16 KB)
 BENCH_FILE=/absolute/path/to/large.cirru yarn bench   # benchmark on a real file
 yarn compile       # emit lib/ (tsc -p tsconfig-compile.json)
