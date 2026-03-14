@@ -184,15 +184,15 @@ Interpretation:
 
 ## File Map
 
-| File                    | Purpose                                                     |
-| ----------------------- | ----------------------------------------------------------- |
-| `src/index.ts`          | Parser entry point; `lexAndBuild`, `parse`, `parseOneLiner` |
-| `src/tree.ts`           | Tree helpers: `resolveDollar`, `resolveComma`, utilities    |
-| `src/types.ts`          | `ELexState`, `ELexControl`, `ICirruNode`                    |
-| `src/parser.test.ts`    | All 22 tests                                                |
-| `src/bench.ts`          | Benchmark script                                            |
-| `tsconfig.bench.json`   | Separate tsconfig for bench (es2022, node types)            |
-| `tsconfig-compile.json` | Library build config                                        |
-| `test/cirru/*.cirru`    | Test input fixtures                                         |
-| `test/ast/*.json`       | Expected AST outputs                                        |
-| `lib/`                  | Compiled library output (committed)                         |
+| File                    | Purpose                                                                 |
+| ----------------------- | ----------------------------------------------------------------------- |
+| `src/index.ts`          | Parser entry point; `lexAndBuild`, `parse`, `parseOneLiner`             |
+| `src/tree.ts`           | Tree helpers: `resolveDollar`, `resolveComma`, utilities                |
+| `src/types.ts`          | `ELexState`, `ELexControl`, `ICirruNode`                                |
+| `src/parser.test.ts`    | All 22 tests                                                            |
+| `src/bench.ts`          | Benchmark script                                                        |
+| `tsconfig.bench.json`   | Separate tsconfig for bench (es2022, node types)                        |
+| `tsconfig-compile.json` | Library build config                                                    |
+| `test/cirru/*.cirru`    | Test input fixtures                                                     |
+| `test/ast/*.json`       | Expected AST outputs                                                    |
+| `lib/`                  | Compiled library output (generated; not committed—run `yarn compile`)   |
