@@ -176,7 +176,7 @@ let lexAndBuild = (code: string): ICirruNode[] => {
             state = ELexState.escape;
             break;
           case CHAR_NEWLINE:
-            throw new Error("Expected newline in string");
+            throw new Error("Unexpected newline in string");
           default:
             if (stringHasEscape) buffer = buffer + code[pointer - 1];
             break;
