@@ -1,6 +1,7 @@
 let fs = require("fs");
 let path = require("path");
 let { parse, parseOneLiner } = require("./index");
+let { resolveDollar, resolveComma, resolveDollarComma } = require("./tree");
 
 test("single quote", () => expect(parse('a "\\\'"')).toEqual([["a", "'"]]));
 
@@ -119,5 +120,31 @@ describe("parseOneLiner", () => {
 
   test("throws error on multiple expressions", () => {
     expect(() => parseOneLiner("add 1 2\nmul 3 4")).toThrow("Expected single expression, got 2 expressions");
+  });
+});
+
+describe("resolveDollarComma equivalence", () => {
+  let check = (data) => {
+    expect(resolveDollarComma(data)).toEqual(resolveComma(resolveDollar(data)));
+  };
+
+  test("empty", () => {
+    check([]);
+  });
+
+  test("comma expansion", () => {
+    check(["set", [",", "a", "b"], "c"]);
+  });
+
+  test("dollar nesting", () => {
+    check(["add", "1", "$", ["mul", "2", "3"], "4"]);
+  });
+
+  test("mixed unfolding shape", () => {
+    check([["set", ["add", "1", "$", [",", "x", "y"], ["add", "5", "$", ["add", "2"]]]]]);
+  });
+
+  test("nested head array stays nested", () => {
+    check([[[",", "a", "b"]], "tail"]);
   });
 });
