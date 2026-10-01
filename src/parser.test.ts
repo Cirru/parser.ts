@@ -23,6 +23,13 @@ describe("parenthesis syntax errors", () => {
     expect(parse("a (b\n  c)")).toEqual([["a", ["b", ["c"]]]]);
     expect(parse("\n  ")).toEqual([]);
   });
+
+  test("preserves Cirru multiline frame closure and following tokens", () => {
+    expect(parse("a (b\n  c) d")).toEqual([["a", ["b", ["c"], "d"]]]);
+    expect(parse("a (b\n  c)\n  d")).toEqual([["a", ["b", ["c"]], ["d"]]]);
+    expect(parse("a (b\n  c) d (e)\nf")).toEqual([["a", ["b", ["c"], "d", ["e"]]], ["f"]]);
+    expect(parse("a (b\nc)")).toEqual([["a", ["b"], ["c"]]]);
+  });
 });
 
 test("demo", () => {
