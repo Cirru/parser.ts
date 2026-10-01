@@ -42,6 +42,8 @@ let lexAndBuild = (code: string): ICirruNode[] => {
   let state = ELexState.indent as ELexState;
   let buffer = ""; // string content when escape sequences appear
   let level = 0;
+  // Track explicit balance separately from indentation-generated frames.
+  let parenDepth = 0;
   let indentCount = 0;
   let tokenStart = 0;
   let stringStart = 0;
@@ -71,6 +73,17 @@ let lexAndBuild = (code: string): ICirruNode[] => {
     (current as ICirruNode[]).push(tok);
     if (tok === "$") hasDollar = true;
     else if (tok === ",") hasComma = true;
+  };
+
+  const openParen = () => {
+    parenDepth++;
+    emitOpen();
+  };
+
+  const closeParen = () => {
+    if (parenDepth === 0) throw new Error("Unexpected closing parenthesis ')'");
+    parenDepth--;
+    emitClose();
   };
 
   // Called whenever a new line's first non-whitespace character is encountered.
@@ -113,10 +126,10 @@ let lexAndBuild = (code: string): ICirruNode[] => {
             indentCount = 0;
             break;
           case CHAR_LPAREN:
-            emitOpen();
+            openParen();
             break;
           case CHAR_RPAREN:
-            emitClose();
+            closeParen();
             break;
           case CHAR_DQUOTE:
             state = ELexState.string;
@@ -150,12 +163,12 @@ let lexAndBuild = (code: string): ICirruNode[] => {
             break;
           case CHAR_LPAREN:
             emitToken(code.slice(tokenStart, pointer - 1));
-            emitOpen();
+            openParen();
             state = ELexState.space;
             break;
           case CHAR_RPAREN:
             emitToken(code.slice(tokenStart, pointer - 1));
-            emitClose();
+            closeParen();
             state = ELexState.space;
             break;
           default:
@@ -231,10 +244,12 @@ let lexAndBuild = (code: string): ICirruNode[] => {
           case CHAR_LPAREN:
             if (isOdd(indentCount)) throw new Error(`Invalid indentation size ${indentCount}`);
             flushIndent(indentCount >> 1);
-            emitOpen();
+            openParen();
             state = ELexState.space;
             indentCount = 0;
             break;
+          case CHAR_RPAREN:
+            throw new Error("Unexpected closing parenthesis ')' at line start");
           default:
             if (isOdd(indentCount)) throw new Error(`Invalid indentation size ${indentCount}`);
             flushIndent(indentCount >> 1);
@@ -257,6 +272,7 @@ let lexAndBuild = (code: string): ICirruNode[] => {
   }
 
   if (first) return []; // no content was seen
+  if (parenDepth !== 0) throw new Error("Unclosed parenthesis at end of input");
 
   // Close remaining open levels (mirrors the original: level closes + 1 final close)
   for (let i = 0; i < level; i++) emitClose();

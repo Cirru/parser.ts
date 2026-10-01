@@ -5,6 +5,33 @@ let { resolveDollar, resolveComma, resolveDollarComma } = require("./tree");
 
 test("single quote", () => expect(parse('a "\\\'"')).toEqual([["a", "'"]]));
 
+describe("parenthesis syntax errors", () => {
+  test.each([")", "  )", "\n)", "a)", "a )", "a (b))", "a (b) )", "a\n  )"])("rejects unmatched closing parenthesis: %j", (code) => {
+    expect(() => parse(code)).toThrow(/Unexpected closing parenthesis/);
+    expect(() => parseOneLiner(code)).toThrow(/Unexpected closing parenthesis/);
+  });
+
+  test.each(["(", "a (b", "a ((b)", "a (b\n  c"])("rejects unfinished parentheses: %j", (code) => {
+    expect(() => parse(code)).toThrow(/Unclosed parenthesis/);
+    expect(() => parseOneLiner(code)).toThrow(/Unclosed parenthesis/);
+  });
+
+  test("keeps quoted parentheses, balanced nesting and empty input", () => {
+    expect(parse('a "(" ")"')).toEqual([["a", "(", ")"]]);
+    expect(parse('a "\\\"(\\\""')).toEqual([["a", '"("']]);
+    expect(parse("a (b (c))")).toEqual([["a", ["b", ["c"]]]]);
+    expect(parse("a (b\n  c)")).toEqual([["a", ["b", ["c"]]]]);
+    expect(parse("\n  ")).toEqual([]);
+  });
+
+  test("preserves Cirru multiline frame closure and following tokens", () => {
+    expect(parse("a (b\n  c) d")).toEqual([["a", ["b", ["c"], "d"]]]);
+    expect(parse("a (b\n  c)\n  d")).toEqual([["a", ["b", ["c"]], ["d"]]]);
+    expect(parse("a (b\n  c) d (e)\nf")).toEqual([["a", ["b", ["c"], "d", ["e"]]], ["f"]]);
+    expect(parse("a (b\nc)")).toEqual([["a", ["b"], ["c"]]]);
+  });
+});
+
 test("demo", () => {
   let code = fs.readFileSync(path.join(__dirname, "../test/cirru/demo.cirru"), "utf8");
   let data = require(path.join(__dirname, "../test/ast/demo.json"));
